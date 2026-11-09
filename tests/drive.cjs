@@ -12,7 +12,7 @@ function engine(){
  const document={addEventListener(){},getElementById(){return null}};
  const ctx={window,document,console,crypto:webcrypto,TextEncoder,URLSearchParams,setInterval(){}};
  vm.runInNewContext(script,ctx,{filename:"drive-sync.js"});
- window.MiPanelCloud.init({defaultCategories:()=>[{id:"personal",name:"Personal",builtIn:true,updatedAt:"2025-01-01T00:00:00Z"}]});
+ window.MiPanelCloud.init({normalize:x=>x,defaultCategories:()=>[{id:"personal",name:"Personal",builtIn:true,updatedAt:"2025-01-01T00:00:00Z"}]});
  return {merge:window.__mergeForTest,parseCloudPackage:window.__parseCloudPackageForTest,prefix:window.__prefixForTest};
 }
 function task(title,date){return{id:"t1",title,areaId:"personal",area:"Personal",status:"Pendiente",updatedAt:date,createdAt:"2026-11-01T00:00:00Z"}}
