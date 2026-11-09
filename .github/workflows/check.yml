@@ -12,7 +12,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Validar JavaScript
-        run: node --check app.js && node --check sw.js
+        run: node --check app.js && node --check drive-sync.js && node --check sw.js
+      - name: Probar guardado y migración
+        run: node --test tests/smoke.cjs
       - name: Validar manifiesto
         run: node -e 'JSON.parse(require("fs").readFileSync("manifest.webmanifest","utf8"))'
       - name: Verificar archivos básicos
