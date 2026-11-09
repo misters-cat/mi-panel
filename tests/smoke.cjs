@@ -10,7 +10,7 @@ function setup(){
  const cut=source.lastIndexOf("readState().then(");
  assert(cut>0,"No se encontró punto de inicio de la PWA");
  const patched=source.slice(0,cut)+
-  'window.__test={getState,migrateState,saveForm,saveCategory,save,setDb:x=>{db=x},setState:x=>{state=x},actual:()=>state};\n})();';
+  'window.__test={getState,migrateState,saveForm,saveCategory,save,toggle,setDb:x=>{db=x},setState:x=>{state=x},actual:()=>state};\n})();';
  const toast={textContent:"",classList:{add(){},remove(){}},value:""};
  const elements=new Map();
  const element=id=>{
@@ -49,6 +49,20 @@ test("la migración conserva tareas existentes y agrega GRANDES METAS",()=>{
  assert(migrated.categories.some(x=>x.name==="GRANDES METAS"));
  assert.equal(migrated.tasks[0].areaId,"trabajo");
  assert.equal(migrated.settings.theme,"dark");
+});
+test("Mi Panel usa el cliente OAuth configurado sin que sea necesario pegarlo",()=>{
+ const {api}=setup();
+ assert.equal(api.getState().settings.googleClientId,"305697567217-ir52gouobhlnst0mgsstl9orf8s7m77a.apps.googleusercontent.com");
+ assert.equal(api.migrateState({tasks:[],settings:{googleClientId:""}}).settings.googleClientId,"305697567217-ir52gouobhlnst0mgsstl9orf8s7m77a.apps.googleusercontent.com");
+});
+test("Marcar una tarea actualiza la fecha usada para resolver sincronización",async()=>{
+ const {api,getSaved}=setup();
+ const initial=api.getState();
+ initial.tasks=[{id:"t1",title:"Recordatorio",areaId:"personal",type:"tarea",status:"Pendiente",priority:"Normal",updatedAt:"2025-01-01T00:00:00Z",createdAt:"2025-01-01T00:00:00Z"}];
+ api.setState(initial);
+ await api.toggle("t1");
+ assert.equal(getSaved().tasks[0].status,"Terminada");
+ assert(getSaved().tasks[0].updatedAt>"2025-01-01T00:00:00Z");
 });
 test("Guardar pendiente confirma IndexedDB antes de mostrar éxito",async()=>{
  const {api,toast,getSaved}=setup();
