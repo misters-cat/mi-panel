@@ -15,6 +15,10 @@ jobs:
         run: node --check app.js && node --check drive-sync.js && node --check sw.js
       - name: Probar guardado y migración
         run: node --test tests/*.cjs
+      - name: Instalar controlador de Chromium para prueba de interfaz
+        run: npm install --prefix /tmp/mi-panel-browser --no-save --ignore-scripts --no-fund --no-audit playwright-core@1.56.1
+      - name: Probar Guardar en navegador real
+        run: NODE_PATH=/tmp/mi-panel-browser/node_modules node tests/browser.cjs
       - name: Validar manifiesto
         run: node -e 'JSON.parse(require("fs").readFileSync("manifest.webmanifest","utf8"))'
       - name: Verificar archivos básicos
