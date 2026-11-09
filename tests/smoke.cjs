@@ -26,12 +26,15 @@ function setup(){
   TextEncoder,TextDecoder,URL,confirm:()=>true,prompt:()=>null};
  vm.runInNewContext(patched,ctx,{filename:"app.js"});
  let saved=null;
- const db={fail:false,transaction(){
-  const parent=this;
+ const db={fail:false,transaction(name,mode="readonly"){
+  const parent=this,writing=mode==="readwrite";
   const tx={error:new Error("Error de escritura simulado"),objectStore(){
-   return{put(value){tx.staged=JSON.parse(JSON.stringify(value))}}
+   return {
+    put(value){tx.staged=JSON.parse(JSON.stringify(value))},
+    get(){const req={result:null};setImmediate(()=>{req.result=saved;req.onsuccess?.()});return req}
+   }
   }};
-  setImmediate(()=>{if(parent.fail){tx.onerror?.()}else{saved=tx.staged;tx.oncomplete?.()}});
+  if(writing)setImmediate(()=>{if(parent.fail){tx.onerror?.()}else{saved=tx.staged;tx.oncomplete?.()}});
   return tx;
  }};
  window.__test.setDb(db);
@@ -66,5 +69,5 @@ test("Si IndexedDB falla, Guardar NO muestra éxito ni mantiene un cambio inexis
  await api.saveForm(form(taskFields("personal","No debe quedar guardado")));
  assert.equal(api.actual().tasks.length,0);
  assert.equal(getSaved(),null);
- assert.match(toast.textContent,/Error/i);
+ assert.match(toast.textContent,/No se guardó/i);
 });
