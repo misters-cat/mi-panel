@@ -1,0 +1,19 @@
+name: Validar Mi Panel
+on:
+  push:
+    branches: [desarrollo]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validar JavaScript
+        run: node --check app.js && node --check sw.js
+      - name: Validar manifiesto
+        run: node -e 'JSON.parse(require("fs").readFileSync("manifest.webmanifest","utf8"))'
+      - name: Verificar archivos básicos
+        run: test -s index.html && test -s styles.css && test -s icon.svg
