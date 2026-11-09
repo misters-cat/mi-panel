@@ -88,3 +88,6 @@ No pierdas la clave: **no podemos recuperarla**. Una clave equivocada impide lee
 ## Historial de versiones en la aplicación
 
 En **Ajustes → Historial de versiones** se muestra la versión actual y un desplegable con las versiones anteriores. Los cambios de la integración OAuth preparada como v1.2.3 se publican junto a este apartado en **v1.2.4** (9 de noviembre de 2026). El historial sólo describe versiones comprobables a partir de las etapas del repositorio.
+
+## v1.2.5 · Mensaje de descifrado en iPhone
+Si Google Drive contiene un archivo cifrado con una clave diferente (o dañado), la app detiene la sincronización antes de modificar datos locales o archivos de Drive. El mensaje indica revisar la misma clave usada en el computador y deja la conexión lista para volver a autorizar. El campo de contraseña permite mostrar/ocultar para verificar que Safari no haya introducido mayúsculas o espacios inesperados. **No se guarda la clave en el dispositivo**; persistirla requeriría aceptar un riesgo adicional de seguridad.
