@@ -30,6 +30,21 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   await page.locator("#area").selectOption("grandes-metas");
   await page.locator("#due").fill("2026-12-04");
   await page.locator("#task-form button[type=submit]").click();
+  const debug=await page.evaluate(async()=>{
+   const out={view:document.querySelector("#app")?.innerText?.slice(0,600),
+    modal:document.querySelector("#modal")?.innerText?.slice(0,400),
+    toast:document.querySelector("#toast")?.textContent,
+    form:!!document.querySelector("#task-form")};
+   try{
+    out.persisted=await new Promise((ok,fail)=>{
+      const r=indexedDB.open("mi-panel-db",1);
+      r.onsuccess=()=>{const q=r.result.transaction("kv").objectStore("kv").get("state");q.onsuccess=()=>ok(q.result?.tasks?.map(t=>({id:t.id,title:t.title,areaId:t.areaId})));q.onerror=()=>fail(q.error)};
+      r.onerror=()=>fail(r.error);
+    });
+   }catch(e){out.dbError=String(e)}
+   return out;
+  });
+  console.log("DIAGNÓSTICO REAL:",JSON.stringify(debug),"PAGE ERRORS:",errors);
   await page.locator(".save-banner").waitFor({timeout:8000});
   assert.match(await page.locator("#app").innerText(),/Guardado en este dispositivo/);
   assert.match(await page.locator("#app").innerText(),/Organizar documentos para mi meta/);
