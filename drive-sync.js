@@ -38,9 +38,19 @@ function shared(snapshot){
  const d=hooks.normalize(snapshot);
  return {version:2,tasks:d.tasks,categories:d.categories,deletedTasks:d.deletedTasks,deletedCategories:d.deletedCategories};
 }
+function decryptionFailure(error){
+ return error?.name==="OperationError"||error?.name==="DataError"||/Formato de respaldo|Respaldo inválido|Respaldo no reconocido/.test(String(error?.message||""));
+}
 async function fetchFile(file){
  const pkg=await(await call("/files/"+encodeURIComponent(file.id)+"?alt=media")).json();
- return shared(await hooks.decrypt(pkg,password));
+ try{
+  return shared(await hooks.decrypt(pkg,password));
+ }catch(error){
+  if(!decryptionFailure(error))throw error;
+  const issue=new Error("No fue posible descifrar un archivo de Drive. La clave puede ser distinta de la del computador o el archivo puede estar dañado.");
+  issue.code="DRIVE_DECRYPT_FAILED";
+  throw issue;
+ }
 }
 async function upload(file,snapshot,id){
  const body=JSON.stringify(await hooks.encrypt(snapshot,password));
@@ -117,7 +127,19 @@ async function sync(){
   setStatus("Sincronizado: "+new Date().toLocaleString("es-CL")+(result.conflicts?" · ⚠️ Revisa conflictos":""));
   hooks.render();
   if(result.conflicts)hooks.toast("Se conservaron versiones en conflicto para revisar");
- }catch(error){console.error(error);setStatus("Error: "+String(error.message||error).slice(0,90));hooks.toast("No se sincronizó. Tus datos locales están conservados.")}
+ }catch(error){
+  console.error(error);
+  if(error?.code==="DRIVE_DECRYPT_FAILED"){
+   // Nunca se intenta crear ni sobrescribir archivos si falla el descifrado.
+   token="";password="";expiration=0;
+   setStatus("No se pudo abrir Drive: verifica la misma clave usada en el computador. No se borró nada.");
+   hooks.toast("No se sincronizó: comprueba la clave de Drive. Los datos siguen guardados.");
+   hooks.render();
+  }else{
+   setStatus("Error: "+String(error.message||error).slice(0,90));
+   hooks.toast("No se sincronizó. Tus datos locales están conservados.");
+  }
+ }
  finally{busy=false}
 }
 function schedule(){if(!connected()||!navigator.onLine)return;clearTimeout(timer);timer=setTimeout(()=>sync(),4000)}

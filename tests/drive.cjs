@@ -7,17 +7,17 @@ const {webcrypto}=require("node:crypto");
 function engine(){
  const source=fs.readFileSync("drive-sync.js","utf8");
  assert(source.includes("window.MiPanelCloud={init};"));
- const script=source.replace("window.MiPanelCloud={init};","window.MiPanelCloud={init};window.__mergeForTest=merge;");
+ const script=source.replace("window.MiPanelCloud={init};","window.MiPanelCloud={init};window.__mergeForTest=merge;window.__decryptionFailureForTest=decryptionFailure;");
  const window={addEventListener(){}};
  const document={addEventListener(){},getElementById(){return null}};
  const ctx={window,document,console,crypto:webcrypto,TextEncoder,URLSearchParams,setInterval(){}};
  vm.runInNewContext(script,ctx,{filename:"drive-sync.js"});
  window.MiPanelCloud.init({defaultCategories:()=>[{id:"personal",name:"Personal",builtIn:true,updatedAt:"2025-01-01T00:00:00Z"}]});
- return window.__mergeForTest;
+ return {merge:window.__mergeForTest,isDecryptionFailure:window.__decryptionFailureForTest};
 }
 function task(title,date){return{id:"t1",title,areaId:"personal",area:"Personal",status:"Pendiente",updatedAt:date,createdAt:"2026-11-01T00:00:00Z"}}
 test("La sincronización une tareas de dos dispositivos sin descartarlas",()=>{
- const merge=engine();
+ const {merge}=engine();
  const result=merge([
   {categories:[],tasks:[task("Versión teléfono","2026-11-09T16:00:00Z")]},
   {categories:[],tasks:[{...task("Versión PC","2026-11-09T17:00:00Z"),id:"t2"}]}
@@ -27,7 +27,7 @@ test("La sincronización une tareas de dos dispositivos sin descartarlas",()=>{
  assert(result.snapshot.tasks.some(x=>x.id==="t2"));
 });
 test("Dos ediciones simultáneas preservan la versión anterior para revisión",()=>{
- const merge=engine();
+ const {merge}=engine();
  const out=merge([
   {tasks:[task("Desde iPhone","2026-11-09T16:00:00Z")]},
   {tasks:[task("Desde PC","2026-11-09T17:00:00Z")]}
@@ -37,10 +37,18 @@ test("Dos ediciones simultáneas preservan la versión anterior para revisión",
  assert(out.conflicts>0);
 });
 test("Una eliminación sincronizada prevalece sobre la tarea más antigua",()=>{
- const merge=engine();
+ const {merge}=engine();
  const out=merge([
   {tasks:[task("Antes de eliminar","2026-11-01T00:00:00Z")]},
   {deletedTasks:[{id:"t1",deletedAt:"2026-11-09T17:00:00Z"}]}
  ],"2026-11-09T15:00:00Z");
  assert(!out.snapshot.tasks.some(x=>x.id==="t1"));
+});
+
+test("Errores de Web Crypto al descifrar se identifican sin asumir otra causa",()=>{
+ const {isDecryptionFailure}=engine();
+ assert.equal(isDecryptionFailure({name:"OperationError"}),true);
+ assert.equal(isDecryptionFailure({name:"DataError"}),true);
+ assert.equal(isDecryptionFailure({name:"Error",message:"Respaldo inválido"}),true);
+ assert.equal(isDecryptionFailure({name:"NetworkError"}),false);
 });
