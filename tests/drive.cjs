@@ -7,13 +7,13 @@ const {webcrypto}=require("node:crypto");
 function engine(){
  const source=fs.readFileSync("drive-sync.js","utf8");
  assert(source.includes("window.MiPanelCloud={init};"));
- const script=source.replace("window.MiPanelCloud={init};","window.MiPanelCloud={init};window.__mergeForTest=merge;window.__decryptionFailureForTest=decryptionFailure;");
+ const script=source.replace("window.MiPanelCloud={init};","window.MiPanelCloud={init};window.__mergeForTest=merge;window.__parseCloudPackageForTest=parseCloudPackage;window.__prefixForTest=PREFIX;");
  const window={addEventListener(){}};
  const document={addEventListener(){},getElementById(){return null}};
  const ctx={window,document,console,crypto:webcrypto,TextEncoder,URLSearchParams,setInterval(){}};
  vm.runInNewContext(script,ctx,{filename:"drive-sync.js"});
  window.MiPanelCloud.init({defaultCategories:()=>[{id:"personal",name:"Personal",builtIn:true,updatedAt:"2025-01-01T00:00:00Z"}]});
- return {merge:window.__mergeForTest,isDecryptionFailure:window.__decryptionFailureForTest};
+ return {merge:window.__mergeForTest,parseCloudPackage:window.__parseCloudPackageForTest,prefix:window.__prefixForTest};
 }
 function task(title,date){return{id:"t1",title,areaId:"personal",area:"Personal",status:"Pendiente",updatedAt:date,createdAt:"2026-11-01T00:00:00Z"}}
 test("La sincronización une tareas de dos dispositivos sin descartarlas",()=>{
@@ -45,10 +45,19 @@ test("Una eliminación sincronizada prevalece sobre la tarea más antigua",()=>{
  assert(!out.snapshot.tasks.some(x=>x.id==="t1"));
 });
 
-test("Errores de Web Crypto al descifrar se identifican sin asumir otra causa",()=>{
- const {isDecryptionFailure}=engine();
- assert.equal(isDecryptionFailure({name:"OperationError"}),true);
- assert.equal(isDecryptionFailure({name:"DataError"}),true);
- assert.equal(isDecryptionFailure({name:"Error",message:"Respaldo inválido"}),true);
- assert.equal(isDecryptionFailure({name:"NetworkError"}),false);
+test("La nueva sincronización ignora el espacio de archivos cifrados antiguos",()=>{
+ const {prefix,parseCloudPackage}=engine();
+ assert.equal(prefix,"mi-panel-sync-v2-");
+ const decoded=parseCloudPackage({format:"mi-panel-auto-sync-v2",version:2,
+   tasks:[],categories:[],deletedTasks:[],deletedCategories:[]});
+ assert.equal(decoded.tasks.length,0);
+ assert.throws(()=>parseCloudPackage({format:"mi-panel-encrypted",v:1,data:"irrelevante"}),/incompatible/);
+});
+test("La nueva sincronización no utiliza contraseña ni cifra la carga de Drive",()=>{
+ const code=fs.readFileSync("drive-sync.js","utf8");
+ assert(!code.includes("hooks.encrypt("));
+ assert(!code.includes("hooks.decrypt("));
+ assert(!code.includes("drive-pass"));
+ assert(code.includes("lastAutoSynced"));
+ assert(code.includes("protectLocal(s)"));
 });
