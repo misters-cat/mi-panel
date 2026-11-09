@@ -8,7 +8,7 @@ const DEFAULT_CATEGORIES=[
 {id:"autowallet",name:"MiAuto Wallet",emoji:"🚗",description:"Proyecto",builtIn:true,updatedAt:"2025-01-01T00:00:00Z"},
 {id:"trabajo",name:"Trabajo",emoji:"🏛️",description:"Gestiones",builtIn:true,updatedAt:"2025-01-01T00:00:00Z"},
 {id:"personal",name:"Personal",emoji:"🏡",description:"Vida personal",builtIn:true,updatedAt:"2025-01-01T00:00:00Z"},
-{id:"grandes-metas",name:"Grandes Metas",emoji:"🎯",description:"Objetivos importantes a largo plazo",builtIn:true,updatedAt:"2025-01-01T00:00:00Z"}
+{id:"grandes-metas",name:"GRANDES METAS",emoji:"🎯",description:"Objetivos importantes a largo plazo",builtIn:true,updatedAt:"2025-01-01T00:00:00Z"}
 ];
 function getCat(id){return state.categories.find(c=>c.id===id)||DEFAULT_CATEGORIES.find(c=>c.id===id)}
 function catId(t){return t.areaId||DEFAULT_CATEGORIES.find(c=>c.name===t.area)?.id||state.categories.find(c=>c.name===t.area)?.id||"personal"}
