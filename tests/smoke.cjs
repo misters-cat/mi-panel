@@ -26,12 +26,15 @@ function setup(){
   TextEncoder,TextDecoder,URL,confirm:()=>true,prompt:()=>null};
  vm.runInNewContext(patched,ctx,{filename:"app.js"});
  let saved=null;
- const db={fail:false,transaction(){
-  const parent=this;
+ const db={fail:false,transaction(name,mode="readonly"){
+  const parent=this,writing=mode==="readwrite";
   const tx={error:new Error("Error de escritura simulado"),objectStore(){
-   return{put(value){tx.staged=JSON.parse(JSON.stringify(value))}}
+   return {
+    put(value){tx.staged=JSON.parse(JSON.stringify(value))},
+    get(){const req={result:null};setImmediate(()=>{req.result=saved;req.onsuccess?.()});return req}
+   }
   }};
-  setImmediate(()=>{if(parent.fail){tx.onerror?.()}else{saved=tx.staged;tx.oncomplete?.()}});
+  if(writing)setImmediate(()=>{if(parent.fail){tx.onerror?.()}else{saved=tx.staged;tx.oncomplete?.()}});
   return tx;
  }};
  window.__test.setDb(db);
