@@ -13,7 +13,7 @@ self.addEventListener("fetch",event=>{
  event.respondWith((async()=>{
   try{
    const response=await fetch(request,{cache:"no-store"});
-   if(response.ok)event.waitUntil(caches.open(CACHE).then(cache=>cache.put(request,response.clone())).catch(console.warn));
+   if(response.ok){const copy=response.clone();event.waitUntil(caches.open(CACHE).then(cache=>cache.put(request,copy)).catch(console.warn));}
    return response;
   }catch(error){
    const cached=await caches.match(request,{ignoreSearch:true});
