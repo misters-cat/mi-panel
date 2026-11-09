@@ -53,3 +53,7 @@ Los datos locales pueden perderse al borrar los datos del navegador o desinstala
 Sin proceso de compilación: HTML, CSS y JavaScript nativos. La rama de desarrollo incluye comprobaciones automatizadas de sintaxis y del manifiesto PWA.
 
 © Mi Panel — uso personal.
+
+## Activar publicación después de habilitar Pages
+
+Tras seleccionar **Settings → Pages → Source: GitHub Actions**, inicia manualmente **Actions → Publicar Mi Panel → Run workflow → main**. El archivo `.github/workflows/pages.yml` también publica con cada nuevo cambio en `main`.
