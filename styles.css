@@ -38,3 +38,10 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .save-banner{background:var(--soft);border:1px solid var(--line);border-radius:15px;padding:13px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;font-weight:600;color:var(--ink)}
 .task.just-saved{background:var(--soft);border-radius:12px;padding:12px!important;outline:1px solid var(--primary);margin:0 0 8px}
 @media(max-width:440px){.save-banner{flex-wrap:wrap}.save-banner .btn{width:100%}}
+
+/* Estado visible y actualización de Mi Panel: nunca afectan datos en IndexedDB */
+.release-chip{font-size:10px;font-weight:700;color:var(--primary);letter-spacing:.01em;background:var(--soft);border:1px solid var(--line);padding:6px 8px;border-radius:10px;white-space:nowrap}
+.storage-warning{border:1px solid var(--danger);color:var(--danger);background:var(--card);border-radius:14px;margin:0 0 18px;padding:14px;font-size:13px;line-height:1.45;font-weight:600}
+.update-note{border:1px solid var(--line);background:var(--soft);border-radius:14px;margin:0 0 18px;padding:11px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px}
+#storage-diagnostic{overflow-wrap:anywhere;line-height:1.55}
+@media(max-width:540px){.release-chip{font-size:9px;padding:5px 6px}.update-note{flex-wrap:wrap}.update-note .btn{width:100%}}
