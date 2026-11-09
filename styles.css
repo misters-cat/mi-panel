@@ -25,3 +25,11 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .field input,.field textarea,.field select{font-size:16px}
 .nav-logo img{border-radius:5px}
 @media(max-width:750px){.card{padding:17px}.metrics .metric{padding:13px 10px}.nav-btn{font-size:10px}.nav-btn span{font-size:23px}}
+
+/* Administrador de categorías */
+.cat-symbol{display:inline-flex;width:44px;height:44px;border-radius:11px;background:var(--soft);align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+.cat-symbol img{width:40px;height:40px;object-fit:contain;border-radius:8px}
+.cat-list .strip b{font-weight:600}
+.cat-list .strip .row{min-width:0;flex:1}
+.cat-list .strip .row span:last-child{min-width:0}
+@media(max-width:430px){.cat-list .strip{gap:8px}.cat-list .strip .btn{flex-shrink:0}}
