@@ -4,10 +4,10 @@
 (function(){
 "use strict";
 const SCOPE="https://www.googleapis.com/auth/drive.appdata";
-const PREFIX="mi-panel-sync-v1-";
-const enc=new TextEncoder();
-let token="",password="",expiration=0,busy=false,timer=null,statusText="Sin conectar",hooks=null;
-function connected(){return Boolean(token&&password&&Date.now()<expiration-60000)}
+const PREFIX="mi-panel-sync-v2-";
+const FORMAT="mi-panel-auto-sync-v2";
+let token="",expiration=0,busy=false,timer=null,statusText="Sin conectar",hooks=null;
+function connected(){return Boolean(token&&Date.now()<expiration-60000)}
 function setStatus(value){statusText=value;const e=document.getElementById("drive-status");if(e)e.textContent=value}
 async function deviceId(){
  const db=hooks.getDb();if(!db)throw Error("IndexedDB no disponible");
@@ -20,7 +20,7 @@ async function deviceId(){
 async function call(url,opts={}){
  if(!connected())throw Error("La sesión de Google caducó: reconecta Drive");
  const res=await fetch(url.startsWith("https://")?url:"https://www.googleapis.com/drive/v3"+url,{...opts,headers:{Authorization:"Bearer "+token,...(opts.headers||{})}});
- if(!res.ok){const detail=(await res.text()).slice(0,180);if(res.status===401){token="";password="";expiration=0;setStatus("Sesión caducada: reconecta Drive")}throw Error("Google Drive "+res.status+" "+detail)}
+ if(!res.ok){const detail=(await res.text()).slice(0,180);if(res.status===401){token="";expiration=0;setStatus("Sesión de Google caducada: vuelve a conectar")}throw Error("Google Drive "+res.status+" "+detail)}
  return res;
 }
 async function list(){
@@ -38,22 +38,50 @@ function shared(snapshot){
  const d=hooks.normalize(snapshot);
  return {version:2,tasks:d.tasks,categories:d.categories,deletedTasks:d.deletedTasks,deletedCategories:d.deletedCategories};
 }
-function decryptionFailure(error){
- return error?.name==="OperationError"||error?.name==="DataError"||/Formato de respaldo|Respaldo inválido|Respaldo no reconocido/.test(String(error?.message||""));
+function parseCloudPackage(pkg){
+ if(pkg?.format!==FORMAT||pkg.version!==2||
+  !Array.isArray(pkg.tasks)||!Array.isArray(pkg.categories)||
+  !Array.isArray(pkg.deletedTasks)||!Array.isArray(pkg.deletedCategories)){
+  throw Error("Un archivo de sincronización tiene un formato incompatible. No se modificó ningún dato.");
+ }
+ return shared(pkg);
 }
 async function fetchFile(file){
  const pkg=await(await call("/files/"+encodeURIComponent(file.id)+"?alt=media")).json();
+ return parseCloudPackage(pkg);
+}
+function protectionKey(){return "mi-panel-proteccion-autosync-v2"}
+async function getProtection(){
+ const db=hooks.getDb();if(!db)throw Error("IndexedDB no disponible");
+ return new Promise((ok,fail)=>{
+  const r=db.transaction("kv","readonly").objectStore("kv").get(protectionKey());
+  r.onsuccess=()=>ok(r.result);r.onerror=()=>fail(r.error);
+ });
+}
+async function protectLocal(snapshot,key=protectionKey()){
+ const db=hooks.getDb();if(!db)throw Error("IndexedDB no disponible");
+ return new Promise((ok,fail)=>{
+  const tx=db.transaction("kv","readwrite"),store=tx.objectStore("kv");
+  const r=store.get(key);
+  r.onsuccess=()=>{if(!r.result)store.put(JSON.parse(JSON.stringify(snapshot)),key)};
+  tx.oncomplete=()=>ok();tx.onabort=()=>fail(tx.error||Error("Error al proteger datos locales"));
+  tx.onerror=()=>fail(tx.error||Error("Error al proteger datos locales"));
+ });
+}
+async function restoreProtection(){
  try{
-  return shared(await hooks.decrypt(pkg,password));
- }catch(error){
-  if(!decryptionFailure(error))throw error;
-  const issue=new Error("No fue posible descifrar un archivo de Drive. La clave puede ser distinta de la del computador o el archivo puede estar dañado.");
-  issue.code="DRIVE_DECRYPT_FAILED";
-  throw issue;
- }
+  const saved=await getProtection();
+  if(!saved){hooks.toast("Este dispositivo aún no tiene una copia previa de sincronización");return}
+  if(!confirm("¿Restaurar la copia de protección de este dispositivo? Antes conservaremos también los datos actuales. La sincronización se desconectará."))return;
+  const old=hooks.getState();
+  await protectLocal(old,"mi-panel-proteccion-antes-restaurar-"+Date.now());
+  hooks.setState(hooks.normalize(saved));
+  try{await hooks.persist({skipSync:true,preserveDate:true})}catch(error){hooks.setState(old);throw error}
+  disconnect();hooks.toast("Copia local restaurada. Revisa tus tareas antes de reconectar.");
+ }catch(error){console.error(error);hooks.toast("No se pudo recuperar la copia; tus datos actuales siguen intactos")}
 }
 async function upload(file,snapshot,id){
- const body=JSON.stringify(await hooks.encrypt(snapshot,password));
+ const body=JSON.stringify({...snapshot,format:FORMAT,version:2,exportedAt:new Date().toISOString()});
  if(file)return (await call("https://www.googleapis.com/upload/drive/v3/files/"+encodeURIComponent(file.id)+"?uploadType=media",{method:"PATCH",headers:{"Content-Type":"application/json"},body})).json();
  const boundary="mp_"+id.replace(/-/g,"");
  const meta={name:PREFIX+id+".json",parents:["appDataFolder"],mimeType:"application/json"};
@@ -116,36 +144,30 @@ async function sync(){
   // Si un archivo no puede descifrarse, nunca se escribe encima de nada.
   for(const file of files)cloud.push({file,content:await fetchFile(file)});
   const s=hooks.getState(),before=shared(s);
-  const result=merge([before,...cloud.map(c=>c.content)],s.settings.lastSynced||"2025-01-01T00:00:00Z");
+  // Copia local independiente, antes de combinar cualquier dato de Drive.
+  if(!s.settings?.lastAutoSynced)await protectLocal(s);
+  const result=merge([before,...cloud.map(c=>c.content)],s.settings?.lastAutoSynced||"2025-01-01T00:00:00Z");
   const updated={...s,...result.snapshot,settings:{...s.settings}};
   hooks.setState(updated);
   try{await hooks.persist({skipSync:true,preserveDate:true})}catch(e){hooks.setState(s);throw e}
   const current=shared(hooks.getState()),own=cloud.find(c=>c.file.name===PREFIX+id+".json");
   if(!own||JSON.stringify(own.content)!==JSON.stringify(current))await upload(own?.file,current,id);
-  hooks.getState().settings.lastSynced=new Date().toISOString();
+  hooks.getState().settings.lastAutoSynced=new Date().toISOString();
   await hooks.persist({skipSync:true,preserveDate:true});
   setStatus("Sincronizado: "+new Date().toLocaleString("es-CL")+(result.conflicts?" · ⚠️ Revisa conflictos":""));
   hooks.render();
   if(result.conflicts)hooks.toast("Se conservaron versiones en conflicto para revisar");
  }catch(error){
   console.error(error);
-  if(error?.code==="DRIVE_DECRYPT_FAILED"){
-   // Nunca se intenta crear ni sobrescribir archivos si falla el descifrado.
-   token="";password="";expiration=0;
-   setStatus("No se pudo abrir Drive: verifica la misma clave usada en el computador. No se borró nada.");
-   hooks.toast("No se sincronizó: comprueba la clave de Drive. Los datos siguen guardados.");
-   hooks.render();
-  }else{
-   setStatus("Error: "+String(error.message||error).slice(0,90));
-   hooks.toast("No se sincronizó. Tus datos locales están conservados.");
-  }
+  setStatus("No se completó la sincronización: "+String(error.message||error).slice(0,110));
+  hooks.toast("No se sincronizó. Tus tareas locales y archivos anteriores se conservan.");
+  hooks.render();
  }
  finally{busy=false}
 }
 function schedule(){if(!connected()||!navigator.onLine)return;clearTimeout(timer);timer=setTimeout(()=>sync(),4000)}
-function connect(pass,clientId){
+function connect(clientId){
  if(!clientId){hooks.toast("Primero guarda el Client ID OAuth");return}
- if(pass.length<12){hooks.toast("Necesitas una clave de 12 caracteres o más");return}
  if(!navigator.onLine){hooks.toast("Para autorizar Drive se necesita internet");return}
  try{
   // requestAccessToken debe ejecutarse en el clic del usuario: Safari/iOS bloquea ventanas tardías.
@@ -153,20 +175,19 @@ function connect(pass,clientId){
   if(!oauth){setStatus("Cargando autorización Google…");hooks.loadGIS().then(()=>{setStatus("Google listo: pulsa Conectar Drive otra vez");hooks.toast("Google está listo. Pulsa Conectar Drive otra vez.")}).catch(()=>{setStatus("No se pudo cargar Google");hooks.toast("Comprueba tu conexión e inténtalo nuevamente")});return}
   const client=oauth.initTokenClient({client_id:clientId.trim(),scope:SCOPE,callback:async response=>{
    if(response.error||!response.access_token||!(response.scope||"").includes(SCOPE)){setStatus("Drive no autorizado");hooks.toast("Permiso de Drive rechazado");return}
-   token=response.access_token;expiration=Date.now()+Number(response.expires_in||3500)*1000;password=pass;
-   const input=document.getElementById("drive-pass");if(input)input.value="";
+   token=response.access_token;expiration=Date.now()+Number(response.expires_in||3500)*1000;
    await sync();
   },error_callback:()=>{setStatus("No se completó la ventana de Google");hooks.toast("No se pudo abrir o completar la autorización de Google")}});
   client.requestAccessToken({prompt:"consent"});
  }catch(error){console.error(error);setStatus("No fue posible conectar");hooks.toast("Error de autorización Google")}
 }
-function disconnect(){clearTimeout(timer);token="";password="";expiration=0;setStatus("Desconectado. Los archivos de Drive se conservan.");hooks.render()}
+function disconnect(){clearTimeout(timer);token="";expiration=0;setStatus("Desconectado. Los archivos de Drive se conservan.");hooks.render()}
 function init(api){
  hooks=api;
  window.addEventListener("online",schedule);
  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")schedule()});
  setInterval(()=>{if(connected()&&navigator.onLine&&document.visibilityState==="visible")sync()},180000);
- return {connect,sync,schedule,disconnect,connected,status:()=>statusText};
+ return {connect,sync,schedule,disconnect,connected,status:()=>statusText,restoreProtection};
 }
 window.MiPanelCloud={init};
 })();

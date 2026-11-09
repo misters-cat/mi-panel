@@ -91,3 +91,11 @@ En **Ajustes → Historial de versiones** se muestra la versión actual y un des
 
 ## v1.2.5 · Mensaje de descifrado en iPhone
 Si Google Drive contiene un archivo cifrado con una clave diferente (o dañado), la app detiene la sincronización antes de modificar datos locales o archivos de Drive. El mensaje indica revisar la misma clave usada en el computador y deja la conexión lista para volver a autorizar. El campo de contraseña permite mostrar/ocultar para verificar que Safari no haya introducido mayúsculas o espacios inesperados. **No se guarda la clave en el dispositivo**; persistirla requeriría aceptar un riesgo adicional de seguridad.
+
+
+## v1.2.6 · Sincronización automática sin clave compartida
+Mi Panel utiliza exclusivamente GitHub Pages y el permiso `drive.appdata` para guardar una copia en el espacio privado de la aplicación de tu Google Drive. **La nueva copia no tiene cifrado con contraseña adicional**: su protección depende de la cuenta Google, su autorización OAuth y los controles de Google Drive. Autoriza Google en cada dispositivo; la app sincroniza al conectar, guardar, volver a estar en línea, hacerse visible y periódicamente mientras sigue abierta y autorizada. Los tokens temporales no se guardan; al expirar o reiniciar el navegador puede necesitarse una nueva autorización, y no hay actualización con la PWA cerrada.
+
+La sincronización nueva usa archivos `mi-panel-sync-v2-*` y nunca abre, modifica ni elimina los antiguos `mi-panel-sync-v1-*` cifrados. Antes de la primera combinación se crea una copia local de protección en IndexedDB de ese dispositivo. En Ajustes → Seguridad y recuperación puede recuperarse, previa confirmación. Los respaldos manuales opcionales siguen cifrados.
+
+Si hay datos importantes **sólo dentro de los archivos cifrados antiguos** y no en ningún dispositivo, no aparecerán automáticamente en v2; deben recuperarse por separado con su clave original. Los cambios simultáneos pueden generar copias ⚠️ para revisar. No guardes datos confidenciales de terceros.
