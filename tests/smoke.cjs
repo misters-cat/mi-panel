@@ -19,7 +19,7 @@ function setup(){
   return elements.get(id);
  };
  const window={addEventListener(){},scrollTo(){}};
- const document={querySelector:element,querySelectorAll(){return[]},addEventListener(){}};
+ const document={documentElement:{dataset:{}},querySelector:element,querySelectorAll(){return[]},addEventListener(){}};
  class FData{constructor(x){this.x=x.fields}entries(){return Object.entries(this.x)[Symbol.iterator]()}}
  const ctx={window,document,console,crypto:webcrypto,FormData:FData,
   navigator:{onLine:true},matchMedia:()=>({matches:false}),setTimeout:()=>1,clearTimeout(){},setInterval(){},
