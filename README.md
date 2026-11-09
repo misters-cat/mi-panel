@@ -84,3 +84,7 @@ El contenido se cifra localmente con PBKDF2-SHA-256 y AES-GCM (Web Crypto). Los 
 **Limitaciones importantes:** es sincronización al iniciar la conexión, al guardar cambios, al volver a estar en línea y periódicamente **mientras Mi Panel esté abierto y autorizado**. No existe una sesión perpetua ni sincronización en segundo plano con la app cerrada desde GitHub Pages. Si expira OAuth o reinicias el navegador, deberás volver a autorizar Google e introducir la clave. Los relojes y ediciones simultáneas pueden ocasionar conflictos: revisa cualquier tarea marcada ⚠️. Google Drive API y OAuth ya están preparados en Google Cloud, pero falta probar la autorización y la sincronización real en ambos dispositivos antes de considerarlas validadas. Conserva los respaldos cifrados manuales como protección independiente.
 
 No pierdas la clave: **no podemos recuperarla**. Una clave equivocada impide leer los archivos existentes y no se sobrescriben si fallan al descifrarse. Evita crear archivos cifrados con otra clave en la misma cuenta sin exportar un respaldo.
+
+## Historial de versiones en la aplicación
+
+En **Ajustes → Historial de versiones** se muestra la versión actual y un desplegable con las versiones anteriores. Los cambios de la integración OAuth preparada como v1.2.3 se publican junto a este apartado en **v1.2.4** (9 de noviembre de 2026). El historial sólo describe versiones comprobables a partir de las etapas del repositorio.

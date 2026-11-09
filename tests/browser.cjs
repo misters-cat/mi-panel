@@ -80,8 +80,15 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert.match(await page.locator("#app").innerText(),/Revisar el trabajo mañana/);
   console.log("OK: respetar elección de categoría manual");
 
-  assert.equal(await page.locator("#release-chip").innerText(),"v1.2.3");
+  assert.equal(await page.locator("#release-chip").innerText(),"v1.2.4");
   await page.locator('button[data-view="ajustes"]').first().click();
+  await page.locator("#release-history").waitFor({state:"attached"});
+  assert.match(await page.locator("#app").innerText(),/Historial de versiones/);
+  assert.match(await page.locator(".release-latest").innerText(),/1\.2\.4/);
+  await page.locator("#release-history summary").click();
+  assert.match(await page.locator("#release-history").innerText(),/1\.2\.2/);
+  assert.match(await page.locator("#release-history").innerText(),/0\.1/);
+  console.log("OK: historial de versiones independiente y desplegable");
   await page.locator("#storage-check").click();
   await page.waitForFunction(()=>document.querySelector("#storage-diagnostic")?.textContent.includes("IndexedDB accesible"));
   const diagnostic=await page.locator("#storage-diagnostic").innerText();
