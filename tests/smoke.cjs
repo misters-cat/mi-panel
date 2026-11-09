@@ -69,5 +69,5 @@ test("Si IndexedDB falla, Guardar NO muestra éxito ni mantiene un cambio inexis
  await api.saveForm(form(taskFields("personal","No debe quedar guardado")));
  assert.equal(api.actual().tasks.length,0);
  assert.equal(getSaved(),null);
- assert.match(toast.textContent,/Error/i);
+ assert.match(toast.textContent,/No se guardó/i);
 });
