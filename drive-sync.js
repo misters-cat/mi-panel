@@ -20,7 +20,7 @@ async function deviceId(){
 async function call(url,opts={}){
  if(!connected())throw Error("La sesión de Google caducó: reconecta Drive");
  const res=await fetch(url.startsWith("https://")?url:"https://www.googleapis.com/drive/v3"+url,{...opts,headers:{Authorization:"Bearer "+token,...(opts.headers||{})}});
- if(!res.ok){const detail=(await res.text()).slice(0,180);if(res.status===401){token="";setStatus("Sesión caducada")}throw Error("Google Drive "+res.status+" "+detail)}
+ if(!res.ok){const detail=(await res.text()).slice(0,180);if(res.status===401){token="";password="";expiration=0;setStatus("Sesión caducada: reconecta Drive")}throw Error("Google Drive "+res.status+" "+detail)}
  return res;
 }
 async function list(){
@@ -121,18 +121,20 @@ async function sync(){
  finally{busy=false}
 }
 function schedule(){if(!connected()||!navigator.onLine)return;clearTimeout(timer);timer=setTimeout(()=>sync(),4000)}
-async function connect(pass,clientId){
+function connect(pass,clientId){
  if(!clientId){hooks.toast("Primero guarda el Client ID OAuth");return}
  if(pass.length<12){hooks.toast("Necesitas una clave de 12 caracteres o más");return}
  if(!navigator.onLine){hooks.toast("Para autorizar Drive se necesita internet");return}
  try{
-  await hooks.loadGIS();
-  const client=google.accounts.oauth2.initTokenClient({client_id:clientId.trim(),scope:SCOPE,callback:async response=>{
+  // requestAccessToken debe ejecutarse en el clic del usuario: Safari/iOS bloquea ventanas tardías.
+  const oauth=window.google?.accounts?.oauth2;
+  if(!oauth){setStatus("Cargando autorización Google…");hooks.loadGIS().then(()=>{setStatus("Google listo: pulsa Conectar Drive otra vez");hooks.toast("Google está listo. Pulsa Conectar Drive otra vez.")}).catch(()=>{setStatus("No se pudo cargar Google");hooks.toast("Comprueba tu conexión e inténtalo nuevamente")});return}
+  const client=oauth.initTokenClient({client_id:clientId.trim(),scope:SCOPE,callback:async response=>{
    if(response.error||!response.access_token||!(response.scope||"").includes(SCOPE)){setStatus("Drive no autorizado");hooks.toast("Permiso de Drive rechazado");return}
    token=response.access_token;expiration=Date.now()+Number(response.expires_in||3500)*1000;password=pass;
    const input=document.getElementById("drive-pass");if(input)input.value="";
    await sync();
-  }});
+  },error_callback:()=>{setStatus("No se completó la ventana de Google");hooks.toast("No se pudo abrir o completar la autorización de Google")}});
   client.requestAccessToken({prompt:"consent"});
  }catch(error){console.error(error);setStatus("No fue posible conectar");hooks.toast("Error de autorización Google")}
 }

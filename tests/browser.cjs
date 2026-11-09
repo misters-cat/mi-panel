@@ -80,7 +80,7 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert.match(await page.locator("#app").innerText(),/Revisar el trabajo mañana/);
   console.log("OK: respetar elección de categoría manual");
 
-  assert.equal(await page.locator("#release-chip").innerText(),"v1.2.2");
+  assert.equal(await page.locator("#release-chip").innerText(),"v1.2.3");
   await page.locator('button[data-view="ajustes"]').first().click();
   await page.locator("#storage-check").click();
   await page.waitForFunction(()=>document.querySelector("#storage-diagnostic")?.textContent.includes("IndexedDB accesible"));
