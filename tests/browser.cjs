@@ -64,7 +64,7 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   await page.locator('#category-form input[name=name]').fill("Estudios");
   await page.locator('#category-form input[name=emoji]').fill("📚");
   await page.locator('#category-form button[type=submit]').click();
-  await page.locator("#modal").waitFor({state:"visible"});
+  await page.locator("#modal .sheet").waitFor({state:"visible"});
   assert.match(await page.locator("#modal").innerText(),/Estudios/);
   await page.reload({waitUntil:"domcontentloaded"});
   await page.locator('button[data-view="pendientes"]').first().click();
