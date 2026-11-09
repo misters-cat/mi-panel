@@ -80,6 +80,21 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert.match(await page.locator("#app").innerText(),/Revisar el trabajo mañana/);
   console.log("OK: respetar elección de categoría manual");
 
+  assert.equal(await page.locator("#release-chip").innerText(),"v1.2.2");
+  await page.locator('button[data-view="ajustes"]').first().click();
+  await page.locator("#storage-check").click();
+  await page.waitForFunction(()=>document.querySelector("#storage-diagnostic")?.textContent.includes("IndexedDB accesible"));
+  const diagnostic=await page.locator("#storage-diagnostic").innerText();
+  assert.match(diagnostic,/2 registro\(s\) guardados/);
+  assert.match(diagnostic,/Revisar el trabajo mañana/);
+  console.log("OK: diagnóstico muestra la cantidad de registros realmente guardados");
+  const freshURL="http://127.0.0.1:"+port+"/?actualizar=prueba";
+  await page.goto(freshURL,{waitUntil:"domcontentloaded"});
+  await page.locator('button[data-view="pendientes"]').first().click();
+  await page.locator('button[data-filter="grandes-metas"]').click();
+  assert.match(await page.locator("#app").innerText(),/Revisar el trabajo mañana/);
+  console.log("OK: recarga con URL nueva conserva datos locales");
+  
   assert.equal(errors.length,0,"Excepciones JS: "+errors.join("; "));
   console.log("OK: sin errores JavaScript de ejecución");
   await context.close();
