@@ -54,8 +54,10 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   await page.locator('button[data-filter="grandes-metas"]').click();
   assert.match(await page.locator("#app").innerText(),/Organizar documentos para mi meta/);
   await page.locator('button[data-view="semana"]').first().click();
-  assert.match(await page.locator("#app").innerText(),/Guardados recientemente/);
-  assert.match(await page.locator("#app").innerText(),/Organizar documentos para mi meta/);
+  assert.match(await page.locator("#app").innerText(),/Mi día/);
+  assert.match(await page.locator("#app").innerText(),/Próximos siete días/);
+  assert.equal(await page.locator(".dashboard-stats .dash-stat").count(),3);
+  console.log("OK: inicio compacto sin duplicar tareas futuras que todavía no vencen");
   console.log("OK: Guardar y persistir registro tras recarga en Chromium");
 
   await page.locator('button[data-view="pendientes"]').first().click();
@@ -84,7 +86,7 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   // La sincronización debe estar accesible desde la pantalla principal, incluso desconectada.
   await page.locator('button[data-view="semana"]').first().click();
   assert.equal(await page.locator(".quick-sync").count(),1);
-  const rolling=await page.locator(".days .day").evaluateAll(nodes=>nodes.map(n=>n.getAttribute("data-date")));
+  const rolling=await page.locator(".home-days .home-day").evaluateAll(nodes=>nodes.map(n=>n.getAttribute("data-home-day")));
   assert.equal(rolling.length,7);
   const expected=await page.evaluate(()=>{
    const d=new Date(),local=x=>x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0");
@@ -92,7 +94,7 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
    return out;
   });
   assert.deepEqual(rolling,expected,"La franja debe ir desde hoy hasta seis días más tarde");
-  assert.equal(await page.locator(".days .day.today").count(),1);
+  assert.equal(await page.locator(".home-days .home-day.is-today").count(),1);
   console.log("OK: semana móvil comienza hoy y conserva siete días consecutivos");
   assert.match(await page.locator(".quick-sync").innerText(),/Google Drive/);
   assert.match(await page.locator(".quick-sync").innerText(),/Conectar Google/);
@@ -146,15 +148,16 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   console.log("OK: Grandes Metas guarda etapas, cambio de progreso y fecha");
 
   await page.locator('button[data-view="semana"]').first().click();
-  assert.match(await page.locator("#app").innerText(),/Avisos dentro de Mi Panel/);
-  assert.match(await page.locator(".notice-list").innerText(),/Meta con etapas de prueba/);
+  assert.match(await page.locator(".focus-panel").innerText(),/Meta con etapas de prueba/);
+  await page.locator(".home-disclosure").filter({hasText:"Revisión semanal"}).locator("summary").click();
   const firstPick=page.locator("[data-week-pick]").first();
   await firstPick.click();
   await page.waitForFunction(()=>document.querySelector(".review-picks")?.textContent.includes("(1/3)"));
   assert.match(await page.locator(".review-picks").innerText(),/1\/3/);
   await page.reload({waitUntil:"domcontentloaded"});
+  await page.locator(".home-disclosure").filter({hasText:"Revisión semanal"}).locator("summary").click();
   assert.match(await page.locator(".review-picks").innerText(),/1\/3/);
-  console.log("OK: avisos al abrir Mi Panel y prioridades semanales guardadas");
+  console.log("OK: avisos integrados al inicio y tres prioridades semanales guardadas");
 
   await page.locator('button[data-view="agenda"]').first().click();
   assert.equal(await page.locator(".agenda-day").count(),7);
@@ -201,6 +204,41 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert.match(await page.locator("#app").innerText(),/Pendiente escrito sin internet/);
   console.log("OK: guardado local offline sobrevive a reconexión y recarga");
 
+
+
+  // Los tres contadores deben filtrar resultados, sin duplicarlos.
+  await page.locator('button[data-view="semana"]').first().click();
+  await page.locator('button[data-home-mode="today"]').click();
+  assert.match(await page.locator(".focus-title").innerText(),/Para hoy/);
+  await page.locator('button[data-home-mode="overdue"]').click();
+  assert.match(await page.locator(".focus-title").innerText(),/Atrasados/);
+  await page.locator('button[data-home-mode="focus"]').click();
+  assert.match(await page.locator(".focus-title").innerText(),/Qué hacer ahora/);
+  assert.equal(await page.locator(".home-days .home-day").count(),7);
+  const dayThree=page.locator(".home-day").nth(3),selectedDate=await dayThree.getAttribute("data-home-day");
+  await dayThree.click();
+  assert.equal(await page.locator('.home-day[data-home-day="'+selectedDate+'"]').getAttribute("aria-pressed"),"true");
+  assert.match(await page.locator(".focus-title").innerText(),/Para /);
+  console.log("OK: tablero filtra hoy, atrasados, próximos y días seleccionados");
+
+  await page.locator('button[data-view="agenda"]').first().click();
+  await page.locator('.agenda-day-select').nth(3).click();
+  assert.equal(await page.locator('.agenda-day.agenda-selected').count(),1);
+  assert.equal(await page.locator('.agenda-week-grid .agenda-day').count(),7);
+  assert.equal(await page.locator('.agenda-selected-panel').count(),1);
+  console.log("OK: agenda diaria seleccionable con línea de tiempo");
+
+  await page.locator('button[data-view="pendientes"]').first().click();
+  assert.equal(await page.locator(".category-choices .category-choice").count()>=5,true);
+  assert.equal(await page.locator(".status-choices .status-choice").count(),4);
+  await page.locator('button[data-filter="Sin fecha"]').click();
+  assert.match(await page.locator(".pending-list-title").innerText(),/Sin programar/);
+  console.log("OK: categorías, filtros por estado y tareas sin fecha");
+
+  // El layout principal no debe obligar a desplazamiento horizontal del documento en 390 px.
+  const metrics=await page.evaluate(()=>({inner:innerWidth,documentWidth:document.documentElement.scrollWidth}));
+  assert(metrics.documentWidth<=metrics.inner+1,"El diseño móvil no debe desbordarse horizontalmente: "+JSON.stringify(metrics));
+  console.log("OK: diseño responsive de ancho móvil y controles reales");
 
   assert.equal(errors.length,0,"Excepciones JS: "+errors.join("; "));
   console.log("OK: sin errores JavaScript de ejecución");
