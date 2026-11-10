@@ -174,7 +174,7 @@ function merge(all,since){
   return (x<0?999:x)-(y<0?999:y)||a.name.localeCompare(b.name,"es");
  });
  return {snapshot:{
-  version:2,categories:sortedCategories,
+  version:3,categories:sortedCategories,
   tasks:[...tasks.values(),...preserved.values()].sort((a,b)=>a.id.localeCompare(b.id)),
   deletedTasks:[...removed.values()].sort((a,b)=>a.id.localeCompare(b.id)),
   deletedCategories:[...removedCats.values()].sort((a,b)=>a.id.localeCompare(b.id)),
