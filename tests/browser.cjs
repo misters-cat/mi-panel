@@ -82,7 +82,7 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert.match(await page.locator("#app").innerText(),/Revisar el trabajo mañana/);
   console.log("OK: respetar elección de categoría manual");
 
-  assert.equal(await page.locator("#release-chip").innerText(),"v1.5.1");
+  assert.equal(await page.locator("#release-chip").innerText(),"v1.6.0");
   // La sincronización debe estar accesible desde la pantalla principal, incluso desconectada.
   await page.locator('button[data-view="semana"]').first().click();
   assert.equal(await page.locator(".quick-sync").count(),1);
@@ -110,7 +110,7 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert.match(await page.locator("#app").innerText(),/cifrado AES-GCM/);
   await page.locator("#release-history").waitFor({state:"attached"});
   assert.match(await page.locator("#app").innerText(),/Historial de versiones/);
-  assert.match(await page.locator(".release-latest").innerText(),/1\.5\.1/);
+  assert.match(await page.locator(".release-latest").innerText(),/1\.6\.0/);
   await page.locator("#release-history summary").click();
   assert.match(await page.locator("#release-history").innerText(),/1\.2\.2/);
   assert.match(await page.locator("#release-history").innerText(),/0\.1/);
@@ -276,6 +276,68 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   const groupAfterReload=page.locator(".cong-card-grid .card").filter({has:page.locator("h2",{hasText:"Sup. de Grupo"})});
   assert.match(await groupAfterReload.innerText(),/Organizar visita del grupo/);
   console.log("OK: cuatro funciones de Congregación, creación y persistencia de Sup. de Grupo");
+
+
+  // Grupo es una categoría independiente: guardar, editar y recuperar desde IndexedDB.
+  await page.locator('button[data-view="grupo"]').first().click();
+  assert.equal(await page.locator("#group-add").count(),1);
+  await page.locator("#group-add").click();
+  await page.locator("#group-name").fill("Integrante de prueba");
+  await page.locator('#group-person-form button[type="submit"]').click();
+  await page.locator(".group-person").filter({hasText:"Integrante de prueba"}).waitFor({timeout:8000});
+  await page.locator(".group-person summary").first().click();
+  await page.locator('[data-group-visit-add]').first().click();
+  await page.locator("#group-visit-topics").fill("Revisar asunto general de organización");
+  await page.locator('#group-visit-form button[type="submit"]').click();
+  await page.locator(".group-visit").waitFor({timeout:8000});
+  assert.match(await page.locator(".group-visit").innerText(),/Revisar asunto general de organización/);
+  assert.match(await page.locator(".group-person summary").innerText(),/Última visita/);
+  await page.locator('[data-group-visit-edit]').first().click();
+  await page.locator("#group-visit-topics").fill("Segunda versión de temas generales");
+  await page.locator('#group-visit-form button[type="submit"]').click();
+  await page.waitForFunction(()=>document.querySelector(".group-visit")?.textContent.includes("Segunda versión de temas generales"));
+  await page.reload({waitUntil:"domcontentloaded"});
+  await page.locator('button[data-view="congregacion"]').first().click();
+  await page.locator('button[data-view="grupo"]').first().click();
+  assert.match(await page.locator(".group-person summary").innerText(),/Integrante de prueba/);
+  await page.locator(".group-person summary").first().click();
+  assert.match(await page.locator(".group-visit").innerText(),/Segunda versión de temas generales/);
+  console.log("OK: Grupo registra integrantes, última visita y notas editadas tras recargar");
+  page.once("dialog",dialog=>dialog.accept());
+  await page.locator('[data-group-person-delete]').first().click();
+  await page.waitForFunction(()=>document.querySelectorAll(".group-person").length===0);
+  await page.reload({waitUntil:"domcontentloaded"});
+  await page.locator('button[data-view="congregacion"]').first().click();
+  await page.locator('button[data-view="grupo"]').first().click();
+  assert.equal(await page.locator(".group-person").count(),0);
+  console.log("OK: eliminación local de integrante y visitas no reaparece tras recarga");
+
+  // La fecha más cercana, incluso sin hora, debe preceder a otra posterior con hora.
+  const orderContext=await browser.newContext({viewport:{width:390,height:844}});
+  const orderPage=await orderContext.newPage();
+  await orderPage.goto("http://127.0.0.1:"+port+"/",{waitUntil:"domcontentloaded"});
+  const dates=await orderPage.evaluate(()=>{
+    const today=new Date();
+    return [4,6,8].map(offset=>{
+      const d=new Date(today.getFullYear(),today.getMonth(),today.getDate()+offset);
+      return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+    });
+  });
+  for(const [index,title] of ["Primera fecha sin hora","Segunda fecha próxima","Compromiso posterior con hora"].entries()){
+    await orderPage.locator("#nav #add").click();
+    await orderPage.locator("#title").fill(title);
+    await orderPage.locator("#due").fill(dates[index]);
+    if(index===2)await orderPage.locator('input[name="time"]').fill("19:00");
+    await orderPage.locator('#task-form button[type="submit"]').click();
+    await orderPage.locator(".save-banner").waitFor({timeout:8000});
+  }
+  await orderPage.locator('button[data-view="semana"]').first().click();
+  assert.equal(await orderPage.locator(".next-appointment .appointment-details strong").innerText(),"Primera fecha sin hora");
+  const focusList=await orderPage.locator(".focus-panel .dash-task-title").allInnerTexts();
+  assert.deepEqual(focusList.slice(0,2),["Primera fecha sin hora","Segunda fecha próxima"]);
+  assert(!focusList.includes("Compromiso posterior con hora"));
+  console.log("OK: inicio ordena por fecha, aunque un compromiso posterior tenga hora");
+  await orderContext.close();
 
   assert.equal(errors.length,0,"Excepciones JS: "+errors.join("; "));
   console.log("OK: sin errores JavaScript de ejecución");

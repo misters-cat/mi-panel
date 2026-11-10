@@ -8,6 +8,7 @@ const DEFAULT_CATEGORIES=[
 {id:"autowallet",name:"MiAuto Wallet",emoji:"🚗",description:"Proyecto",builtIn:true,updatedAt:"2025-01-01T00:00:00Z"},
 {id:"trabajo",name:"Trabajo",emoji:"🏛️",description:"Gestiones",builtIn:true,updatedAt:"2025-01-01T00:00:00Z"},
 {id:"personal",name:"Personal",emoji:"🏡",description:"Vida personal",builtIn:true,updatedAt:"2025-01-01T00:00:00Z"},
+{id:"grupo",name:"Grupo",emoji:"👥",description:"Integrantes y visitas",builtIn:true,updatedAt:"2025-01-01T00:00:00Z"},
 {id:"grandes-metas",name:"GRANDES METAS",emoji:"🎯",description:"Objetivos importantes a largo plazo",builtIn:true,updatedAt:"2025-01-01T00:00:00Z"}
 ];
 function getCat(id){return state.categories.find(c=>c.id===id)||DEFAULT_CATEGORIES.find(c=>c.id===id)}
@@ -19,16 +20,16 @@ function migrateState(x){
  const cats=Array.isArray(saved.categories)?saved.categories.map(c=>({...c})):fresh.categories;
  const deletedCats=Array.isArray(saved.deletedCategories)?saved.deletedCategories:[];
  for(const base of DEFAULT_CATEGORIES)if(!cats.some(c=>c.id===base.id)&&!deletedCats.some(t=>t.id===base.id))cats.push({...base});
- return {...fresh,...saved,version:2,categories:cats,deletedCategories:deletedCats,
+ return {...fresh,...saved,version:3,categories:cats,deletedCategories:deletedCats,
  tasks:(saved.tasks||[]).map(t=>({...t,areaId:t.areaId||cats.find(c=>c.name===t.area)?.id||DEFAULT_CATEGORIES.find(c=>c.name===t.area)?.id||"personal",updatedAt:t.updatedAt||t.createdAt||"2025-01-01T00:00:00Z"})),
- deletedTasks:Array.isArray(saved.deletedTasks)?saved.deletedTasks:[],trash:Array.isArray(saved.trash)?saved.trash.filter(t=>!t.trashedAt||Date.now()-Date.parse(t.trashedAt)<30*86400000):[],
+ deletedTasks:Array.isArray(saved.deletedTasks)?saved.deletedTasks:[],groupPeople:Array.isArray(saved.groupPeople)?saved.groupPeople:[],groupVisits:Array.isArray(saved.groupVisits)?saved.groupVisits:[],deletedGroupPeople:Array.isArray(saved.deletedGroupPeople)?saved.deletedGroupPeople:[],deletedGroupVisits:Array.isArray(saved.deletedGroupVisits)?saved.deletedGroupVisits:[],trash:Array.isArray(saved.trash)?saved.trash.filter(t=>!t.trashedAt||Date.now()-Date.parse(t.trashedAt)<30*86400000):[],
  settings:{...fresh.settings,...saved.settings,googleClientId:saved.settings?.googleClientId?.trim()||GOOGLE_CLIENT_ID}};
 }
 
 const S=["Anciano","Superintendente de servicio","Asignaciones","Sup. de Grupo"];
 const STAGES=["Recibida","Preparando","Lista","Realizada"];
 const GOOGLE_CLIENT_ID="305697567217-ir52gouobhlnst0mgsstl9orf8s7m77a.apps.googleusercontent.com";
-const APP_VERSION="1.5.1";
+const APP_VERSION="1.6.0";
 const TODAY=()=>iso(new Date());
 const uid=()=>crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random().toString(36).slice(2);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -38,10 +39,10 @@ function addDays(s,n){const d=parseLocal(s);if(!d)return "";d.setDate(d.getDate(
 function display(s){const d=parseLocal(s);return d?d.toLocaleDateString("es-CL",{day:"numeric",month:"short"}):"Sin fecha"}
 function rangeStart(){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-(d.getDay()+6)%7);return iso(d)}
 function weekEnd(){return addDays(TODAY(),6)}
-function getState(){return {version:2,tasks:[],trash:[],categories:DEFAULT_CATEGORIES.map(c=>({...c})),deletedTasks:[],deletedCategories:[],settings:{theme:"auto",googleClientId:GOOGLE_CLIENT_ID,lastBackup:null,lastSynced:null,weeklyPicks:[]},updatedAt:new Date().toISOString()}}
+function getState(){return {version:3,tasks:[],groupPeople:[],groupVisits:[],deletedGroupPeople:[],deletedGroupVisits:[],trash:[],categories:DEFAULT_CATEGORIES.map(c=>({...c})),deletedTasks:[],deletedCategories:[],settings:{theme:"auto",googleClientId:GOOGLE_CLIENT_ID,lastBackup:null,lastSynced:null,weeklyPicks:[]},updatedAt:new Date().toISOString()}}
 let state=getState(),view="semana",filter="Todas",search="",connected=false,token="",googleEvents=[],hiding=false,lastScroll=0,lastSavedId=null,lastDeletedId=null,agendaOffset=0,globalQuery="";
 let db,cloudClient=null,storageError="",lastRenderedDay=TODAY();
-let homeMode="focus",homeSelectedDay=TODAY(),agendaSelectedDay=TODAY(),reviewExpanded=false,areasExpanded=false;
+let homeMode="focus",homeSelectedDay=TODAY(),agendaSelectedDay=TODAY(),reviewExpanded=false,areasExpanded=false,groupQuery="";
 function openDB(){return new Promise((ok,fail)=>{const r=indexedDB.open("mi-panel-db",1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains("kv"))r.result.createObjectStore("kv")};r.onsuccess=()=>ok(r.result);r.onerror=()=>fail(r.error)})}
 async function readState(){try{db=await openDB();const x=await new Promise((ok,fail)=>{const t=db.transaction("kv","readonly").objectStore("kv").get("state");t.onsuccess=()=>ok(t.result);t.onerror=()=>fail(t.error)});state=migrateState(x)}catch(err){storageError="No se pudo abrir el almacenamiento local. Tus cambios no se guardarán hasta resolverlo.";console.warn("IndexedDB no disponible",err);toast("⚠️ No se pudo abrir el almacenamiento local")}}
 async function save(options={}){
@@ -126,16 +127,17 @@ function sortSchedule(items){
 }
 function nextAppointment(){
  const today=TODAY(),clock=new Date(),hour=String(clock.getHours()).padStart(2,"0")+":"+String(clock.getMinutes()).padStart(2,"0");
- const tasks=active().filter(t=>t.due&&t.time&&t.due>=today&&(t.due>today||t.time>=hour))
-  .map(t=>({date:t.due,time:t.time,title:t.title,area:catName(t),id:t.id,external:false}));
- const external=connected?googleEvents.filter(e=>e.start?.dateTime).map(e=>{
-  const timestamp=e.start.dateTime;
-  const d=new Date(timestamp),valid=!Number.isNaN(d.getTime());
-  const date=valid?iso(d):timestamp.slice(0,10);
-  const time=valid?String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"):timestamp.slice(11,16);
+ // Incluir pendientes SIN hora: el compromiso del 14 debe preceder al del 18.
+ const tasks=active().filter(t=>t.due&&t.due>=today&&(t.due>today||!t.time||t.time>=hour))
+  .map(t=>({date:t.due,time:t.time||"",title:t.title,area:catName(t),id:t.id,external:false}));
+ const external=connected?googleEvents.filter(e=>e.start?.date||e.start?.dateTime).map(e=>{
+  const value=e.start.dateTime||e.start.date;
+  const d=new Date(value),valid=!Number.isNaN(d.getTime())&&!!e.start.dateTime;
+  const date=valid?iso(d):value.slice(0,10);
+  const time=valid?String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"):"";
   return {date,time,title:e.summary||"Compromiso",area:"Google Calendar",external:true};
- }).filter(e=>e.date>=today&&(e.date>today||e.time>=hour)):[];
- return [...tasks,...external].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time))[0]||null;
+ }).filter(e=>e.date>=today&&(e.date>today||!e.time||e.time>=hour)):[];
+ return [...tasks,...external].sort((a,b)=>a.date.localeCompare(b.date)||(a.time||"00:00").localeCompare(b.time||"00:00"))[0]||null;
 }
 function compactTask(t){
  const day=t.due?(t.due<TODAY()?"Atrasado · "+display(t.due):t.due===TODAY()?"Hoy":display(t.due)):"Sin fecha";
@@ -172,9 +174,9 @@ function homeFocusItems(){
  else if(homeMode==="day"){items=sortSchedule(all.filter(t=>t.due===homeSelectedDay));title="Para "+dayTitle(homeSelectedDay)}
  else{
   const seen=new Set();
-  items=[...late,...today,...picks,...reminders,...upcoming].filter(t=>{
+  items=sortSchedule([...late,...today,...picks,...reminders,...upcoming].filter(t=>{
    if(seen.has(t.id))return false;seen.add(t.id);return true;
-  });
+  }));
   title="Qué hacer ahora";
  }
  return {items:items.slice(0,5),count:items.length,title};
@@ -209,9 +211,9 @@ function homeDayStrip(){
  }).join("")+'</div>';
 }
 function homeAreaSummary(){
- return '<details class="home-disclosure" data-home-section="areas" '+(areasExpanded?"open":"")+'> <summary>Mis áreas <span>Ver categorías</span></summary>'+
+ return '<details class="home-disclosure" data-home-section="areas" '+(areasExpanded?"open":"")+ '> <summary>Mis áreas <span>Ver categorías</span></summary>'+
  '<div class="home-area-grid">'+state.categories.map(c=>
- '<button class="home-area" data-area="'+esc(c.id)+'"><span class="home-area-icon">'+categoryIcon(c)+'</span><span>'+esc(c.name)+'</span><b>'+active().filter(t=>catId(t)===c.id).length+'</b></button>'
+ '<button class="home-area" '+(c.id==="grupo"?'data-view="grupo"':'data-area="'+esc(c.id)+'"')+'><span class="home-area-icon">'+categoryIcon(c)+'</span><span>'+esc(c.name)+'</span><b>'+(c.id==="grupo"?state.groupPeople.length:active().filter(t=>catId(t)===c.id).length)+'</b></button>'
  ).join("")+'</div></details>';
 }
 function week(){
@@ -220,9 +222,9 @@ function week(){
  const upcoming=all.filter(t=>t.due&&t.due>=now&&t.due<=end),undated=all.filter(t=>!t.due);
  const focus=homeFocusItems(),appointment=nextAppointment();
  const stat=(mode,value,label)=>'<button class="dash-stat '+(homeMode===mode?"dash-stat-selected":"")+'" data-home-mode="'+mode+'" aria-pressed="'+(homeMode===mode?"true":"false")+'"><b>'+value+'</b><span>'+label+'</span></button>';
- const appointmentHtml=appointment?'<section class="next-appointment"><div class="section-kicker">Próximo compromiso</div>'+
- '<div class="next-appointment-main"><div class="appointment-time">'+esc(appointment.time)+'</div>'+
- '<div class="appointment-details"><strong>'+esc(appointment.title)+'</strong><span>'+esc(appointment.area)+' · '+esc(appointment.date===now?"Hoy":display(appointment.date))+'</span></div>'+
+ const appointmentHtml=appointment?'<section class="next-appointment"><div class="section-kicker">Próxima fecha</div>'+
+ '<div class="next-appointment-main"><div class="appointment-time">'+esc(appointment.time||display(appointment.date))+'</div>'+
+ '<div class="appointment-details"><strong>'+esc(appointment.title)+'</strong><span>'+esc(appointment.area)+' · '+esc(appointment.date===now?"Hoy":display(appointment.date))+(appointment.time?" · "+esc(appointment.time):" · Sin hora")+'</span></div>'+
  (appointment.external?'': '<button class="text-action" data-edit="'+esc(appointment.id)+'">Abrir</button>')+'</div></section>':"";
  return '<div class="dashboard-head"><div><div class="dash-date">'+esc(dayTitle(now))+'</div><h1>Mi día</h1>'+
  '<p>Tus pendientes y compromisos.</p></div>'+quickSync()+'</div>'+
@@ -264,6 +266,121 @@ async function toggleWeeklyPick(id){
  try{await save();render();toast("Prioridades semanales actualizadas")}
  catch(e){state.settings.weeklyPicks=old;toast("No se pudieron guardar las prioridades");console.error(e)}
 }
+
+/* Grupo: registro privado de integrantes y visitas. Solo se sube cifrado con Drive. */
+function personVisits(id){return (state.groupVisits||[]).filter(v=>v.personId===id).sort((a,b)=>b.date.localeCompare(a.date)||(b.updatedAt||"").localeCompare(a.updatedAt||""))}
+function readGroupAfterSave(collection,id){
+ if(!db)throw Error("IndexedDB no disponible");
+ return new Promise((ok,fail)=>{
+  const r=db.transaction("kv","readonly").objectStore("kv").get("state");
+  r.onsuccess=()=>ok((r.result?.[collection]||[]).find(x=>x.id===id));
+  r.onerror=()=>fail(r.error||Error("No se pudo verificar el guardado"));
+ });
+}
+function groupView(){
+ const title=getCat("grupo")?.name||"Grupo";
+ const term=groupQuery.trim().toLocaleLowerCase("es");
+ const people=[...(state.groupPeople||[])].filter(p=>p.name.toLocaleLowerCase("es").includes(term)).sort((a,b)=>a.name.localeCompare(b.name,"es"));
+ const withVisits=state.groupPeople.filter(p=>personVisits(p.id).length).length;
+ return heading(title,"Integrantes y registro de visitas")+
+ '<div class="group-overview"><div><strong>'+state.groupPeople.length+'</strong><span>Integrantes</span></div>'+
+ '<div><strong>'+withVisits+'</strong><span>Con visitas registradas</span></div></div>'+
+ '<div class="group-actions"><input id="group-search" type="search" placeholder="Buscar integrante…" aria-label="Buscar integrante" value="'+esc(groupQuery)+'">'+
+ '<button class="btn primary" id="group-add">Añadir integrante</button></div>'+
+ '<div class="group-persons">'+(people.length?people.map(person=>{
+  const visits=personVisits(person.id),last=visits[0];
+  return '<details class="group-person" data-group-person="'+esc(person.id)+'"><summary><span class="group-person-main"><strong>'+esc(person.name)+'</strong>'+
+  '<small>'+(last?'Última visita: '+esc(display(last.date)):'Sin visitas registradas')+'</small></span>'+
+  '<span class="group-visit-count">'+visits.length+' visita'+(visits.length===1?"":"s")+'</span></summary>'+
+  '<div class="group-person-body"><div class="group-person-actions">'+
+  '<button class="btn small primary" data-group-visit-add="'+esc(person.id)+'">Registrar visita</button>'+
+  '<button class="btn small" data-group-person-edit="'+esc(person.id)+'">Editar nombre</button>'+
+  '<button class="btn small danger" data-group-person-delete="'+esc(person.id)+'">Eliminar integrante</button></div>'+
+  (visits.length?'<div class="group-visit-history">'+visits.map(v=>
+   '<div class="group-visit"><div class="group-visit-header"><time datetime="'+esc(v.date)+'">'+esc(display(v.date))+'</time>'+
+   '<div><button class="text-action" data-group-visit-edit="'+esc(v.id)+'">Editar</button>'+
+   '<button class="text-action group-danger" data-group-visit-delete="'+esc(v.id)+'">Eliminar</button></div></div>'+
+   '<p>'+esc(v.topics)+'</p>'+(v.conflictOf?'<span class="tiny muted">Revisar versión diferente sincronizada</span>':"")+
+   '</div>').join("")+'</div>':'<p class="small muted">Aún no se registran visitas.</p>')+'</div></details>';
+ }).join(""):'<div class="dash-empty"><p>'+ (term?"No hay integrantes con ese nombre.":"Agrega el primer integrante para llevar su historial de visitas.")+'</p></div>')+'</div>'+
+ '<p class="group-privacy">Privacidad: estas notas contienen información de otras personas. Registra solo fechas y temas generales, evita asuntos confidenciales y asegúrate de contar con autorización apropiada. Las fichas se guardan en el dispositivo y se sincronizan cifradas con tu Google Drive cuando está conectado.</p>';
+}
+function groupPersonForm(id){
+ const person=(state.groupPeople||[]).find(p=>p.id===id);
+ modal('<div class="sheethead"><h2>'+(person?"Editar integrante":"Nuevo integrante")+'</h2><button class="x" data-close aria-label="Cerrar">×</button></div>'+
+ '<form id="group-person-form" autocomplete="off"><input type="hidden" name="personId" value="'+esc(person?.id||"")+'">'+
+ field("Nombre del integrante",'<input id="group-name" name="name" maxlength="100" required placeholder="Nombre para identificarlo" value="'+esc(person?.name||"")+'">')+
+ '<p class="note">Evita guardar datos personales que no sean necesarios para el control de visitas.</p>'+
+ '<div class="actions"><button class="btn primary" type="submit">Guardar integrante</button><button class="btn" type="button" data-close>Cancelar</button></div></form>');
+ $("#group-name")?.focus();
+}
+function groupVisitForm(personId,visitId){
+ const person=state.groupPeople.find(x=>x.id===personId);
+ if(!person){toast("No se encontró el integrante");return}
+ const visit=state.groupVisits.find(x=>x.id===visitId&&x.personId===personId);
+ modal('<div class="sheethead"><h2>'+(visit?"Editar visita":"Registrar visita")+'</h2><button class="x" data-close aria-label="Cerrar">×</button></div>'+
+ '<p class="small muted">Integrante: <strong>'+esc(person.name)+'</strong></p>'+
+ '<form id="group-visit-form" autocomplete="off"><input type="hidden" name="personId" value="'+esc(personId)+'"><input type="hidden" name="visitId" value="'+esc(visit?.id||"")+'">'+
+ field("Fecha de la visita",'<input id="group-visit-date" name="date" type="date" required max="'+TODAY()+'" value="'+esc(visit?.date||TODAY())+'">')+
+ field("Temas generales conversados",'<textarea id="group-visit-topics" name="topics" required maxlength="1200" rows="4" placeholder="Resumen breve, sin detalles íntimos ni confidenciales">'+esc(visit?.topics||"")+'</textarea>')+
+ '<p class="note">Solo registra información apropiada para conservar. Las notas se sincronizarán cifradas si Drive está conectado.</p>'+
+ '<div class="actions"><button class="btn primary" type="submit">Guardar visita</button><button class="btn" type="button" data-close>Cancelar</button></div></form>');
+ $("#group-visit-date")?.focus();
+}
+async function groupSavePerson(form){
+ const values=Object.fromEntries(new FormData(form).entries()),name=String(values.name||"").trim();
+ if(!name){toast("Escribe el nombre del integrante");return}
+ if(!db){toast("No se guardó: almacenamiento no disponible");return}
+ const old=state.groupPeople.find(p=>p.id===values.personId);
+ if(state.groupPeople.some(p=>p.id!==old?.id&&p.name.toLocaleLowerCase("es")===name.toLocaleLowerCase("es"))){toast("Ya existe ese nombre");return}
+ const now=new Date().toISOString(),person={id:old?.id||uid(),name,createdAt:old?.createdAt||now,updatedAt:now},previous=state.groupPeople;
+ const submit=form.querySelector('button[type="submit"]');if(submit)submit.disabled=true;
+ state.groupPeople=old?previous.map(p=>p.id===old.id?person:p):[...previous,person];
+ try{
+  await save();
+  const actual=await readGroupAfterSave("groupPeople",person.id);
+  if(!actual||actual.updatedAt!==now)throw Error("No fue posible verificar el integrante guardado");
+  close();render();toast("Integrante guardado");
+ }catch(err){state.groupPeople=previous;if(submit)submit.disabled=false;console.error(err);toast("No se confirmó el guardado del integrante")}
+}
+async function groupSaveVisit(form){
+ const values=Object.fromEntries(new FormData(form).entries()),date=String(values.date||""),topics=String(values.topics||"").trim(),personId=values.personId;
+ if(!state.groupPeople.some(p=>p.id===personId)){toast("No se encontró el integrante");return}
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||date>TODAY()){toast("Selecciona una fecha válida, no futura");return}
+ if(!topics){toast("Describe brevemente los temas generales conversados");return}
+ if(!db){toast("No se guardó: almacenamiento no disponible");return}
+ const old=state.groupVisits.find(v=>v.id===values.visitId&&v.personId===personId),previous=state.groupVisits,now=new Date().toISOString();
+ const visit={id:old?.id||uid(),personId,date,topics,createdAt:old?.createdAt||now,updatedAt:now};
+ const submit=form.querySelector('button[type="submit"]');if(submit)submit.disabled=true;
+ state.groupVisits=old?previous.map(v=>v.id===old.id?visit:v):[...previous,visit];
+ try{
+  await save();
+  const actual=await readGroupAfterSave("groupVisits",visit.id);
+  if(!actual||actual.updatedAt!==now)throw Error("No fue posible confirmar la visita");
+  close();render();const details=document.querySelector('[data-group-person="'+personId+'"]');if(details)details.open=true;
+  toast("Visita guardada y verificada");
+ }catch(err){state.groupVisits=previous;if(submit)submit.disabled=false;console.error(err);toast("No se pudo confirmar la visita guardada")}
+}
+async function groupDeleteVisit(id){
+ const item=state.groupVisits.find(x=>x.id===id);if(!item)return;
+ if(!confirm("¿Eliminar este registro de visita?"))return;
+ const before=state.groupVisits,oldDeleted=state.deletedGroupVisits,now=new Date().toISOString();
+ state.groupVisits=before.filter(x=>x.id!==id);
+ state.deletedGroupVisits=[...oldDeleted,{id,deletedAt:now}];
+ try{await save();render();toast("Visita eliminada")}
+ catch(e){state.groupVisits=before;state.deletedGroupVisits=oldDeleted;console.error(e);toast("No se pudo eliminar la visita")}
+}
+async function groupDeletePerson(id){
+ const person=state.groupPeople.find(x=>x.id===id);if(!person)return;
+ if(!confirm('¿Eliminar "'+person.name+'" y todas sus visitas registradas? Esta acción no se puede deshacer sin un respaldo.'))return;
+ const p=state.groupPeople,v=state.groupVisits,dp=state.deletedGroupPeople,dv=state.deletedGroupVisits;
+ const now=new Date().toISOString(),related=v.filter(x=>x.personId===id);
+ state.groupPeople=p.filter(x=>x.id!==id);state.groupVisits=v.filter(x=>x.personId!==id);
+ state.deletedGroupPeople=[...dp,{id,deletedAt:now}];state.deletedGroupVisits=[...dv,...related.map(x=>({id:x.id,deletedAt:now}))];
+ try{await save();render();toast("Integrante y visitas eliminados")}
+ catch(e){state.groupPeople=p;state.groupVisits=v;state.deletedGroupPeople=dp;state.deletedGroupVisits=dv;console.error(e);toast("No se pudo eliminar el integrante")}
+}
+
 function congregation(){
  const tasks=active().filter(t=>catId(t)==="congregacion");
  const group=sub=>sortTasks(tasks.filter(t=>t.subarea===sub));
@@ -276,6 +393,7 @@ function congregation(){
    '<span class="cong-count">'+records.length+'</span><button class="btn small" data-new-sub="'+esc(sub)+'">Añadir</button>');
  }).join("")+'</div>'+
  (other.length?card("Sin clasificar",listTask(other,""),'<span class="cong-count">'+other.length+'</span>'):"")+
+ '<div class="group-shortcut"><div><strong>Grupo · Registro de visitas</strong><span>'+state.groupPeople.length+' integrantes registrados</span></div><button class="btn small" data-view="grupo">Abrir Grupo</button></div>'+
  '<div class="note">Registra recordatorios generales. No guardes datos pastorales confidenciales ni información privada de otras personas.</div>';
 }
 function pending(){
@@ -290,9 +408,9 @@ function pending(){
  if(search)all=all.filter(t=>(t.title+" "+t.notes+" "+catName(t)).toLocaleLowerCase("es").includes(search.toLocaleLowerCase("es")));
  const labels={"Todas":"Todos los pendientes","En espera":"En espera","Terminadas":"Terminadas","Sin fecha":"Sin programar"};
  const title=labels[filter]||state.categories.find(c=>c.id===filter)?.name||"Pendientes";
- const count=id=>active().filter(t=>catId(t)===id).length;
+ const count=id=>id==="grupo"?state.groupPeople.length:active().filter(t=>catId(t)===id).length;
  const catButtons=state.categories.map(c=>
- '<button class="category-choice '+(filter===c.id?"chosen":"")+'" data-filter="'+esc(c.id)+'" aria-pressed="'+(filter===c.id?"true":"false")+'"><span class="category-choice-icon">'+categoryIcon(c)+'</span>'+
+ '<button class="category-choice '+(filter===c.id?"chosen":"")+'" '+(c.id==="grupo"?'data-view="grupo"':'data-filter="'+esc(c.id)+'"')+' aria-pressed="'+(filter===c.id?"true":"false")+'"><span class="category-choice-icon">'+categoryIcon(c)+'</span>'+
  '<span>'+esc(c.name)+'</span><b>'+count(c.id)+'</b></button>').join("");
  const statusButtons=[{id:"Todas",label:"Todos"},{id:"En espera",label:"En espera"},{id:"Terminadas",label:"Terminadas"},{id:"Sin fecha",label:"Sin fecha"}].map(opt=>
  '<button class="status-choice '+(filter===opt.id?"chosen":"")+'" data-filter="'+opt.id+'" aria-pressed="'+(filter===opt.id?"true":"false")+'">'+opt.label+'</button>').join("");
@@ -344,7 +462,7 @@ function agenda(){
  '<details class="home-disclosure"><summary>Próximos compromisos <span>Ver lista completa</span></summary>'+listTask(dated.filter(t=>t.due>=TODAY()).slice(0,18),"No hay próximas fechas.")+'</details>'+
  (!connected?'<div class="agenda-calendar-note"><span>Google Calendar no conectado</span><button class="text-action" data-view="ajustes">Configurar</button></div>':"");
 }
-const RELEASE_HISTORY=[{"version":"1.5.1","date":"10 de noviembre de 2026","name":"Funciones de Congregación","changes":["Congregación ahora tiene cuatro secciones: Anciano, Superintendente de servicio, Asignaciones y Sup. de Grupo.","Cada sección muestra sus pendientes y permite crear registros ya clasificados.","Las tareas existentes no se borran; las que no tienen función se muestran en Sin clasificar."]},{"version":"1.5.0","date":"10 de noviembre de 2026","name":"Tablero y diseño profesional","changes":["El inicio Mi día prioriza lo vencido, lo de hoy y los próximos siete días sin repetir pendientes.","Puedes seleccionar días, abrir el próximo compromiso y consultar tareas sin fecha desde el tablero.","Agenda presenta una vista cronológica por día y Pendientes organiza las áreas y estados.","Inter, iconos lineales y una identidad visual más limpia y consistente en iPhone y computador."]},{"version":"1.4.0","date":"10 de noviembre de 2026","name":"Organización y recuperación","changes":["Papelera de recuperación durante 30 días y opción de deshacer.","Grandes Metas con etapas y avance visual.","Avisos dentro de Mi Panel, agenda de siete días, búsqueda y prioridades semanales."]},{"version":"1.3.0","date":"10 de noviembre de 2026","name":"Seguridad de sincronización","changes":["Todos los archivos nuevos de Google Drive se cifran con clave AES-GCM antes de subirse.","Migración protegida de archivos antiguos sin cifrar y eliminación posterior a la verificación.","La misma clave debe introducirse en cada dispositivo; nunca se almacena en el repositorio."]},{"version":"1.2.9","date":"10 de noviembre de 2026","name":"Siete días desde hoy","changes":["La franja de días de Mi semana comienza en la fecha actual y avanza hasta seis días después.","El rango superior y las prioridades utilizan los mismos siete días consecutivos.","La vista se actualiza al cambiar de día, al volver a la aplicación o durante su uso."]},{"version":"1.2.8","date":"10 de noviembre de 2026","name":"Sincronización al alcance","changes":["Acceso directo a Actualizar ahora en Mi semana, sin entrar a Ajustes.","Estado de conexión Google y última sincronización visibles en la pantalla principal.","Acceso a Conectar Google desde Mi semana cuando la sesión no está activa."]},{"version":"1.2.7","date":"10 de noviembre de 2026","name":"Actualizar sincronización al instante","changes":["Nuevo botón Actualizar ahora en Ajustes → Sincronización automática.","Indicador Sincronizando mientras se intercambian datos; fecha y hora de la última sincronización al finalizar.","La sincronización automática continúa funcionando sin intervención."]},{"version":"1.2.6","date":"9 de noviembre de 2026","name":"Sincronización sencilla con Google","changes":["Google Drive se conecta sin contraseñas adicionales y sincroniza mientras Mi Panel está abierto y autorizado.","Los archivos cifrados anteriores permanecen intactos; se utiliza una nueva área de sincronización.","Copia de protección local antes de mezclar información entre dispositivos."]},{"version":"1.2.5","date":"9 de noviembre de 2026","name":"Conexión Drive más clara","changes":["Explicación del error de descifrado en iPhone sin sobrescribir los archivos de Drive.","Campo de clave con botón mostrar/ocultar y ayuda para escribir la misma clave en ambos dispositivos.","Desconexión segura tras error de clave para reintentar sin mezclar datos."]},{"version":"1.2.4","date":"9 de noviembre de 2026","name":"Google Drive y transparencia","changes":["Client ID OAuth de Mi Panel preconfigurado para Google Drive y Calendar.","Respaldo cifrado reciente antes de la primera sincronización en dispositivos con tareas.","Mejoras de autorización en Safari/iPhone y fechas de actualización de las tareas.","Historial de versiones incorporado en Ajustes."]},{"version":"1.2.2","date":"9 de noviembre de 2026","name":"Guardado verificable y PWA","changes":["Verificación del guardado de pendientes y categorías en IndexedDB.","Diagnóstico del almacenamiento y actualización de la aplicación sin borrar datos.","Categorías personalizables, Grandes Metas y primera sincronización cifrada con Drive."]},{"version":"0.1","date":"9 de noviembre de 2026","name":"Primera versión funcional","changes":["Organizador personal con semana, pendientes y agenda.","Respaldo local cifrado y recuperación protegida.","Base PWA publicada mediante GitHub Pages."]}];
+const RELEASE_HISTORY=[{"version":"1.6.0","date":"10 de noviembre de 2026","name":"Grupo y agenda cronológica","changes":["La siguiente fecha ahora incluye compromisos sin hora y respeta el orden del calendario.","Nueva sección Grupo con integrantes, visitas y temas generales conversados.","Las fichas de Grupo se guardan localmente y se sincronizan cifradas con Google Drive mientras la app esté abierta."]},{"version":"1.5.1","date":"10 de noviembre de 2026","name":"Funciones de Congregación","changes":["Congregación ahora tiene cuatro secciones: Anciano, Superintendente de servicio, Asignaciones y Sup. de Grupo.","Cada sección muestra sus pendientes y permite crear registros ya clasificados.","Las tareas existentes no se borran; las que no tienen función se muestran en Sin clasificar."]},{"version":"1.5.0","date":"10 de noviembre de 2026","name":"Tablero y diseño profesional","changes":["El inicio Mi día prioriza lo vencido, lo de hoy y los próximos siete días sin repetir pendientes.","Puedes seleccionar días, abrir el próximo compromiso y consultar tareas sin fecha desde el tablero.","Agenda presenta una vista cronológica por día y Pendientes organiza las áreas y estados.","Inter, iconos lineales y una identidad visual más limpia y consistente en iPhone y computador."]},{"version":"1.4.0","date":"10 de noviembre de 2026","name":"Organización y recuperación","changes":["Papelera de recuperación durante 30 días y opción de deshacer.","Grandes Metas con etapas y avance visual.","Avisos dentro de Mi Panel, agenda de siete días, búsqueda y prioridades semanales."]},{"version":"1.3.0","date":"10 de noviembre de 2026","name":"Seguridad de sincronización","changes":["Todos los archivos nuevos de Google Drive se cifran con clave AES-GCM antes de subirse.","Migración protegida de archivos antiguos sin cifrar y eliminación posterior a la verificación.","La misma clave debe introducirse en cada dispositivo; nunca se almacena en el repositorio."]},{"version":"1.2.9","date":"10 de noviembre de 2026","name":"Siete días desde hoy","changes":["La franja de días de Mi semana comienza en la fecha actual y avanza hasta seis días después.","El rango superior y las prioridades utilizan los mismos siete días consecutivos.","La vista se actualiza al cambiar de día, al volver a la aplicación o durante su uso."]},{"version":"1.2.8","date":"10 de noviembre de 2026","name":"Sincronización al alcance","changes":["Acceso directo a Actualizar ahora en Mi semana, sin entrar a Ajustes.","Estado de conexión Google y última sincronización visibles en la pantalla principal.","Acceso a Conectar Google desde Mi semana cuando la sesión no está activa."]},{"version":"1.2.7","date":"10 de noviembre de 2026","name":"Actualizar sincronización al instante","changes":["Nuevo botón Actualizar ahora en Ajustes → Sincronización automática.","Indicador Sincronizando mientras se intercambian datos; fecha y hora de la última sincronización al finalizar.","La sincronización automática continúa funcionando sin intervención."]},{"version":"1.2.6","date":"9 de noviembre de 2026","name":"Sincronización sencilla con Google","changes":["Google Drive se conecta sin contraseñas adicionales y sincroniza mientras Mi Panel está abierto y autorizado.","Los archivos cifrados anteriores permanecen intactos; se utiliza una nueva área de sincronización.","Copia de protección local antes de mezclar información entre dispositivos."]},{"version":"1.2.5","date":"9 de noviembre de 2026","name":"Conexión Drive más clara","changes":["Explicación del error de descifrado en iPhone sin sobrescribir los archivos de Drive.","Campo de clave con botón mostrar/ocultar y ayuda para escribir la misma clave en ambos dispositivos.","Desconexión segura tras error de clave para reintentar sin mezclar datos."]},{"version":"1.2.4","date":"9 de noviembre de 2026","name":"Google Drive y transparencia","changes":["Client ID OAuth de Mi Panel preconfigurado para Google Drive y Calendar.","Respaldo cifrado reciente antes de la primera sincronización en dispositivos con tareas.","Mejoras de autorización en Safari/iPhone y fechas de actualización de las tareas.","Historial de versiones incorporado en Ajustes."]},{"version":"1.2.2","date":"9 de noviembre de 2026","name":"Guardado verificable y PWA","changes":["Verificación del guardado de pendientes y categorías en IndexedDB.","Diagnóstico del almacenamiento y actualización de la aplicación sin borrar datos.","Categorías personalizables, Grandes Metas y primera sincronización cifrada con Drive."]},{"version":"0.1","date":"9 de noviembre de 2026","name":"Primera versión funcional","changes":["Organizador personal con semana, pendientes y agenda.","Respaldo local cifrado y recuperación protegida.","Base PWA publicada mediante GitHub Pages."]}];
 function releaseHistory(){
  const item=r=>'<li class="release-entry"><div class="release-meta"><span class="release-version">v'+esc(r.version)+'</span><span class="muted small">'+esc(r.date)+'</span></div><strong>'+esc(r.name)+'</strong><ul>'+r.changes.map(change=>'<li>'+esc(change)+'</li>').join("")+'</ul></li>';
  return card("📜 Historial de versiones",'<p class="small muted">Consulta las novedades de Mi Panel y las mejoras incorporadas.</p>'+
@@ -352,14 +470,14 @@ function releaseHistory(){
  '<details class="release-older" id="release-history"><summary>Ver versiones anteriores</summary><ol class="release-list">'+RELEASE_HISTORY.slice(1).map(item).join("")+'</ol></details>');
 }
 function settings(){const bk=state.settings.lastBackup?new Date(state.settings.lastBackup).toLocaleString("es-CL"):"Ninguno";return heading("Ajustes","Datos locales y sincronización opcional")+card("Estado y diagnóstico",'<p class="small muted">Versión <b>'+APP_VERSION+'</b>. Hay <b>'+state.tasks.length+'</b> registros cargados en este dispositivo.</p><p class="small muted">Los datos del iPhone instalado y los de Safari pueden estar separados hasta completar la sincronización.</p><div class="actions"><button class="btn" id="storage-check">Comprobar guardado</button><button class="btn primary" id="force-refresh">Actualizar aplicación</button></div><p id="storage-diagnostic" class="small muted">La comprobación lee directamente la base local sin modificarla.</p>')+card("Respaldo cifrado",'<p class="small muted">Última exportación: '+esc(bk)+'. Sin sincronización activa, importa el archivo más reciente en el otro dispositivo.</p><div class="actions"><button class="btn primary" id="export">↓ Exportar respaldo</button><button class="btn" id="restore">↑ Restaurar archivo</button></div><p class="tiny muted">Antes de restaurar se descargará una copia cifrada de protección de los datos actuales. Guardarás ambas copias manualmente.</p>')+card("Google Calendar",'<p class="small muted">Opcional: autoriza Google Calendar para consultar eventos y crear asignaciones.</p><button class="btn" id="google-connect" type="button">'+(connected?"Volver a conectar Calendar":"Conectar Google Calendar")+'</button><details style="margin-top:12px"><summary class="small muted">Opciones avanzadas de Google</summary><form id="google-config" style="margin-top:12px"><div class="field"><label>Client ID OAuth (aplicación web)</label><input name="clientId" autocomplete="off" value="'+esc(state.settings.googleClientId)+'"></div><button class="btn small" type="submit">Guardar Client ID</button></form></details>')+card("Papelera",'<p class="small muted">Puedes recuperar pendientes borrados durante 30 días. Las eliminaciones se marcan para evitar que vuelvan a aparecer al sincronizar.</p><button class="btn" data-view="papelera">Abrir Papelera ('+(state.trash?.length||0)+')</button>')+card("Mis categorías",'<p class="small muted">Renombra categorías, cambia sus emojis y agrega otras nuevas. Los pendientes se mantienen asociados aunque cambies el nombre.</p><button class="btn" id="manage-categories">Administrar categorías</button>')+card("Sincronización automática",
- '<p class="small muted">Tus pendientes y categorías se comparten entre el PC y el iPhone al abrir Mi Panel o guardar cambios, mientras Google esté autorizado.</p>'+
+ '<p class="small muted">Tus pendientes, integrantes de Grupo e historial de visitas se comparten cifrados entre el PC y el iPhone mientras Google Drive esté conectado y Mi Panel abierto.</p>'+
  '<p class="small muted"><b>Protegido por cifrado AES-GCM.</b> Utiliza la misma cuenta Google y exactamente la misma clave en todos los dispositivos. La clave no se guarda ni se envía a GitHub o Drive.</p>'+
  '<div class="field"><label>Clave privada de cifrado (mínimo 12 caracteres)</label><input id="drive-pass" type="password" autocomplete="off" minlength="12" placeholder="La misma en iPhone y computador"></div><div class="actions">'+(cloudClient?.connected()?'<span class="note">🔐 Conectado y protegido</span>':'<button class="btn primary" id="drive-connect">Conectar cuenta de Google</button>')+'<button class="btn" id="drive-now" '+(cloudClient?.connected()?"":"disabled")+'>🔄 Actualizar ahora</button></div>'+
  '<p id="drive-status" class="small muted" role="status">'+esc(cloudClient?.status()||"Sin conectar")+'</p>'+
  '<p class="tiny muted">Las tareas se cifran <b>antes</b> de subirse a Drive. Al conectar, Mi Panel intenta retirar archivos antiguos sin cifrar después de verificar una copia nueva. Revisa el estado para confirmar la limpieza. Requiere volver a ingresar la clave y autorizar Google al reiniciar la app.</p>'+
  '<details style="margin-top:12px"><summary class="small muted">Seguridad y recuperación</summary><div class="actions"><button class="btn small" id="drive-restore-protection">Recuperar copia local anterior</button><button class="btn small" id="drive-disconnect">Desconectar Google Drive</button></div><p class="tiny muted">La primera vez se conserva una copia local antes de combinar las tareas. Los respaldos manuales siguen cifrados.</p></details>')+
  card("Apariencia",'<div class="actions">'+["auto","light","dark"].map(x=>'<button class="btn small '+(state.settings.theme===x?"primary":"")+'" data-theme="'+x+'">'+({auto:"Automático",light:"Claro",dark:"Oscuro"}[x])+'</button>').join("")+'</div>')+card("🔒 Privacidad",'<p class="small muted">Mi Panel no publica tareas en GitHub. Cada navegador guarda sus datos localmente; si autorizas Google Drive, sincroniza los datos en su espacio privado sin contraseña de cifrado adicional, mientras la aplicación está abierta y con permiso vigente. La página GitHub Pages es pública, pero no contiene tus tareas.</p>')+releaseHistory()}
-function render(){lastRenderedDay=TODAY();theme();renderStorageWarning();$("#app").innerHTML=view==="semana"?week():view==="congregacion"?congregation():view==="pendientes"?pending():view==="agenda"?agenda():view==="buscar"?globalSearch():view==="papelera"?trashView():settings();$$("[data-view].nav-btn").forEach(b=>b.classList.toggle("chosen",b.dataset.view===view));$("#connection").textContent=navigator.onLine?"● En línea":"● Sin conexión";$("#connection").classList.toggle("offline",!navigator.onLine)}
+function render(){lastRenderedDay=TODAY();theme();renderStorageWarning();$("#app").innerHTML=view==="semana"?week():view==="congregacion"?congregation():view==="pendientes"?pending():view==="agenda"?agenda():view==="buscar"?globalSearch():view==="papelera"?trashView():view==="grupo"?groupView():settings();$$("[data-view].nav-btn").forEach(b=>b.classList.toggle("chosen",b.dataset.view===view));$("#connection").textContent=navigator.onLine?"● En línea":"● Sin conexión";$("#connection").classList.toggle("offline",!navigator.onLine)}
 function navigate(v){view=v;filter=v==="pendientes"?filter:"Todas";search="";if(v!=="buscar")globalQuery="";render();window.scrollTo(0,0)}
 function updateDateIfNeeded(){if(view==="semana"&&TODAY()!==lastRenderedDay)render()}
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")updateDateIfNeeded()});
@@ -569,9 +687,25 @@ document.addEventListener("click",async e=>{const summary=e.target.closest("deta
  }if(btn.dataset.homeMode){homeMode=btn.dataset.homeMode;render();return}
  if(btn.dataset.homeDay){homeSelectedDay=btn.dataset.homeDay;homeMode="day";render();return}
  if(btn.dataset.homeUnscheduled!==undefined){filter="Sin fecha";navigate("pendientes");return}
- if(btn.dataset.close!==undefined){close();return}if(btn.dataset.view){navigate(btn.dataset.view);return}if(btn.id==="add"||btn.id==="add-list"){form(null,filter);return}if(btn.id==="manage-categories"){manageCategories();return}if(btn.id==="back-categories"){manageCategories();return}if(btn.dataset.catEdit){categoryForm(btn.dataset.catEdit);return}if(btn.id==="cat-new"){categoryForm(null);return}if(btn.dataset.catDelete){await deleteCategory(btn.dataset.catDelete);return}if(btn.dataset.newSub){form(null,btn.dataset.newSub);return}if(btn.dataset.area){filter=btn.dataset.area;navigate("pendientes");return}if(btn.dataset.filter){filter=btn.dataset.filter;render();return}if(btn.dataset.edit){const t=state.tasks.find(x=>x.id===btn.dataset.edit);if(t){form(t);appendCalendarButton(t)}return}if(btn.dataset.weekPick){await toggleWeeklyPick(btn.dataset.weekPick);return}if(btn.dataset.stepToggle){await toggleMilestone(btn.dataset.stepToggle,btn.dataset.stepId);return}if(btn.dataset.agendaDay){agendaSelectedDay=btn.dataset.agendaDay;render();return}if(btn.dataset.agenda){agendaOffset=btn.dataset.agenda==="today"?0:agendaOffset+Number(btn.dataset.agenda);agendaSelectedDay=btn.dataset.agenda==="today"?TODAY():addDays(TODAY(),agendaOffset*7);render();return}if(btn.dataset.toggle){await toggle(btn.dataset.toggle);return}if(btn.dataset.restoreTask){await restoreDeleted(btn.dataset.restoreTask);return}if(btn.id==="empty-trash"){await emptyTrash();return}if(btn.dataset.delete){await del(btn.dataset.delete);return}if(btn.dataset.theme){state.settings.theme=btn.dataset.theme;await save();render();return}if(btn.id==="theme"){state.settings.theme=state.settings.theme==="dark"?"light":"dark";await save();render();return}if(btn.id==="export"){await exportBackup();return}if(btn.id==="restore"){await importBackup();return}if(btn.id==="ocr"){await ocr();return}if(btn.id==="google-connect"){await googleConnect();return}if(btn.id==="drive-connect"){const pass=$("#drive-pass");if(!pass){navigate("ajustes");toast("Ingresa la clave de cifrado en Ajustes");return}await cloudClient?.connect(state.settings.googleClientId,pass.value);return}if(btn.id==="drive-now"){if(!cloudClient?.connected()){render();toast("Vuelve a conectar tu cuenta Google para actualizar");return}btn.disabled=true;btn.textContent="⏳ Sincronizando…";try{await cloudClient?.sync()}finally{const current=$("#drive-now");if(current){current.disabled=!cloudClient?.connected();current.textContent="🔄 Actualizar ahora"}}return}if(btn.id==="drive-restore-protection"){await cloudClient?.restoreProtection();return}if(btn.id==="drive-disconnect"){cloudClient?.disconnect();return}if(btn.id==="storage-check"){await storageDiagnostics();return}if(btn.id==="force-refresh"||btn.id==="update-now"){await refreshApp();return}if(btn.id==="reveal"){$("#nav").classList.remove("hide-nav");$("#reveal").classList.add("hidden");return}});
-document.addEventListener("submit",async e=>{if(e.target.getAttribute("id")==="task-form"){e.preventDefault();if(e.target.dataset.saving==="1")return;e.target.dataset.saving="1";try{await saveForm(e.target)}finally{e.target.dataset.saving=""}}if(e.target.getAttribute("id")==="category-form"){e.preventDefault();if(e.target.dataset.saving==="1")return;e.target.dataset.saving="1";try{await saveCategory(e.target)}finally{e.target.dataset.saving=""}}if(e.target.getAttribute("id")==="google-config"){e.preventDefault();state.settings.googleClientId=new FormData(e.target).get("clientId").trim();await save();render();toast("Client ID guardado en este dispositivo")}});
-document.addEventListener("input",e=>{if(e.target.id==="global-search"){const position=e.target.selectionStart;globalQuery=e.target.value;render();const el=$("#global-search");el?.focus();el?.setSelectionRange(position,position)}if(e.target.id==="search"){const position=e.target.selectionStart;search=e.target.value;render();const s=$("#search");s.focus();s.setSelectionRange(position,position)}});
+ if(btn.dataset.close!==undefined){close();return}if(btn.dataset.view){navigate(btn.dataset.view);return}if(btn.id==="add"||btn.id==="add-list"){form(null,filter);return}if(btn.id==="group-add"){groupPersonForm(null);return}
+ if(btn.dataset.groupPersonEdit){groupPersonForm(btn.dataset.groupPersonEdit);return}
+ if(btn.dataset.groupPersonDelete){await groupDeletePerson(btn.dataset.groupPersonDelete);return}
+ if(btn.dataset.groupVisitAdd){groupVisitForm(btn.dataset.groupVisitAdd,null);return}
+ if(btn.dataset.groupVisitEdit){const visit=state.groupVisits.find(v=>v.id===btn.dataset.groupVisitEdit);if(visit)groupVisitForm(visit.personId,visit.id);return}
+ if(btn.dataset.groupVisitDelete){await groupDeleteVisit(btn.dataset.groupVisitDelete);return}
+ if(btn.id==="manage-categories"){manageCategories();return}if(btn.id==="back-categories"){manageCategories();return}if(btn.dataset.catEdit){categoryForm(btn.dataset.catEdit);return}if(btn.id==="cat-new"){categoryForm(null);return}if(btn.dataset.catDelete){await deleteCategory(btn.dataset.catDelete);return}if(btn.dataset.newSub){form(null,btn.dataset.newSub);return}if(btn.dataset.area){filter=btn.dataset.area;navigate("pendientes");return}if(btn.dataset.filter){filter=btn.dataset.filter;render();return}if(btn.dataset.edit){const t=state.tasks.find(x=>x.id===btn.dataset.edit);if(t){form(t);appendCalendarButton(t)}return}if(btn.dataset.weekPick){await toggleWeeklyPick(btn.dataset.weekPick);return}if(btn.dataset.stepToggle){await toggleMilestone(btn.dataset.stepToggle,btn.dataset.stepId);return}if(btn.dataset.agendaDay){agendaSelectedDay=btn.dataset.agendaDay;render();return}if(btn.dataset.agenda){agendaOffset=btn.dataset.agenda==="today"?0:agendaOffset+Number(btn.dataset.agenda);agendaSelectedDay=btn.dataset.agenda==="today"?TODAY():addDays(TODAY(),agendaOffset*7);render();return}if(btn.dataset.toggle){await toggle(btn.dataset.toggle);return}if(btn.dataset.restoreTask){await restoreDeleted(btn.dataset.restoreTask);return}if(btn.id==="empty-trash"){await emptyTrash();return}if(btn.dataset.delete){await del(btn.dataset.delete);return}if(btn.dataset.theme){state.settings.theme=btn.dataset.theme;await save();render();return}if(btn.id==="theme"){state.settings.theme=state.settings.theme==="dark"?"light":"dark";await save();render();return}if(btn.id==="export"){await exportBackup();return}if(btn.id==="restore"){await importBackup();return}if(btn.id==="ocr"){await ocr();return}if(btn.id==="google-connect"){await googleConnect();return}if(btn.id==="drive-connect"){const pass=$("#drive-pass");if(!pass){navigate("ajustes");toast("Ingresa la clave de cifrado en Ajustes");return}await cloudClient?.connect(state.settings.googleClientId,pass.value);return}if(btn.id==="drive-now"){if(!cloudClient?.connected()){render();toast("Vuelve a conectar tu cuenta Google para actualizar");return}btn.disabled=true;btn.textContent="⏳ Sincronizando…";try{await cloudClient?.sync()}finally{const current=$("#drive-now");if(current){current.disabled=!cloudClient?.connected();current.textContent="🔄 Actualizar ahora"}}return}if(btn.id==="drive-restore-protection"){await cloudClient?.restoreProtection();return}if(btn.id==="drive-disconnect"){cloudClient?.disconnect();return}if(btn.id==="storage-check"){await storageDiagnostics();return}if(btn.id==="force-refresh"||btn.id==="update-now"){await refreshApp();return}if(btn.id==="reveal"){$("#nav").classList.remove("hide-nav");$("#reveal").classList.add("hidden");return}});
+document.addEventListener("submit",async e=>{
+ const formId=e.target.getAttribute("id");
+ if(formId==="group-person-form"||formId==="group-visit-form"){
+  e.preventDefault();
+  const form=e.target;if(form.dataset.saving==="1")return;
+  form.dataset.saving="1";
+  try{if(formId==="group-person-form")await groupSavePerson(form);else await groupSaveVisit(form)}
+  finally{form.dataset.saving=""}
+  return;
+ }
+ if(e.target.getAttribute("id")==="task-form"){e.preventDefault();if(e.target.dataset.saving==="1")return;e.target.dataset.saving="1";try{await saveForm(e.target)}finally{e.target.dataset.saving=""}}if(e.target.getAttribute("id")==="category-form"){e.preventDefault();if(e.target.dataset.saving==="1")return;e.target.dataset.saving="1";try{await saveCategory(e.target)}finally{e.target.dataset.saving=""}}if(e.target.getAttribute("id")==="google-config"){e.preventDefault();state.settings.googleClientId=new FormData(e.target).get("clientId").trim();await save();render();toast("Client ID guardado en este dispositivo")}});
+document.addEventListener("input",e=>{if(e.target.id==="group-search"){const cursor=e.target.selectionStart;groupQuery=e.target.value;render();const input=$("#group-search");if(input){input.focus();input.setSelectionRange(cursor,cursor)}return}if(e.target.id==="global-search"){const position=e.target.selectionStart;globalQuery=e.target.value;render();const el=$("#global-search");el?.focus();el?.setSelectionRange(position,position)}if(e.target.id==="search"){const position=e.target.selectionStart;search=e.target.value;render();const s=$("#search");s.focus();s.setSelectionRange(position,position)}});
 document.addEventListener("click",e=>{if(e.target?.id==="overlay")close()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")close()});
 // La navegación inferior permanece visible y estable: evita perder acceso al cambiar de sección.

@@ -37,7 +37,8 @@ async function list(){
 }
 function shared(snapshot){
  const d=hooks.normalize(snapshot);
- return {version:2,tasks:d.tasks,categories:d.categories,deletedTasks:d.deletedTasks,deletedCategories:d.deletedCategories};
+ return {version:3,tasks:d.tasks,categories:d.categories,deletedTasks:d.deletedTasks,deletedCategories:d.deletedCategories,
+  groupPeople:d.groupPeople||[],groupVisits:d.groupVisits||[],deletedGroupPeople:d.deletedGroupPeople||[],deletedGroupVisits:d.deletedGroupVisits||[]};
 }
 function parseCloudPackage(pkg){
  if(pkg?.format!==FORMAT||pkg.version!==2||
@@ -99,11 +100,41 @@ async function upload(file,snapshot,id){
 function hash(str){let h=2166136261;for(let i=0;i<str.length;i++)h=Math.imul(h^str.charCodeAt(i),16777619);return (h>>>0).toString(36)}
 function merge(all,since){
  const tasks=new Map(),cats=new Map(),removed=new Map(),removedCats=new Map(),preserved=new Map();
+ const people=new Map(),visits=new Map(),removedPeople=new Map(),removedVisits=new Map(),preservedVisits=new Map();
  let conflicts=0;
  for(const snapshot of all){
   for(const x of snapshot.categories||[]){const y=cats.get(x.id);if(!y||x.updatedAt>y.updatedAt)cats.set(x.id,x)}
   for(const x of snapshot.deletedTasks||[]){const y=removed.get(x.id);if(!y||x.deletedAt>y.deletedAt)removed.set(x.id,x)}
   for(const x of snapshot.deletedCategories||[]){const y=removedCats.get(x.id);if(!y||x.deletedAt>y.deletedAt)removedCats.set(x.id,x)}
+
+  for(const person of snapshot.groupPeople||[]){
+   const prior=people.get(person.id);
+   if(!prior||(person.updatedAt||"")>(prior.updatedAt||""))people.set(person.id,person);
+   if(prior&&prior.name!==person.name&&(prior.updatedAt||"")>since&&(person.updatedAt||"")>since)conflicts++;
+  }
+  for(const tomb of snapshot.deletedGroupPeople||[]){
+   const prior=removedPeople.get(tomb.id);
+   if(!prior||tomb.deletedAt>prior.deletedAt)removedPeople.set(tomb.id,tomb);
+  }
+  for(const tomb of snapshot.deletedGroupVisits||[]){
+   const prior=removedVisits.get(tomb.id);
+   if(!prior||tomb.deletedAt>prior.deletedAt)removedVisits.set(tomb.id,tomb);
+  }
+  for(const visit of snapshot.groupVisits||[]){
+   const prior=visits.get(visit.id);
+   if(!prior){visits.set(visit.id,visit);continue}
+   const winner=(visit.updatedAt||"")>(prior.updatedAt||"")?visit:prior,loser=winner===visit?prior:visit;
+   visits.set(visit.id,winner);
+   const changed=JSON.stringify({...visit,updatedAt:undefined})!==JSON.stringify({...prior,updatedAt:undefined});
+   if(changed&&(visit.updatedAt||"")>since&&(prior.updatedAt||"")>since){
+    const copyId="conflict-visit-"+loser.id+"-"+hash(JSON.stringify(loser));
+    if(!preservedVisits.has(copyId)&&!visits.has(copyId)){
+     preservedVisits.set(copyId,{...loser,id:copyId,topics:"⚠️ Revisar otra versión de esta visita:\n"+loser.topics,
+       conflictOf:loser.id,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
+     conflicts++;
+    }
+   }
+  }
   for(const t of snapshot.tasks||[]){
    const prev=tasks.get(t.id);if(!prev){tasks.set(t.id,t);continue}
    const winner=(t.updatedAt||"")>(prev.updatedAt||"")?t:prev,loser=winner===t?prev:t;
@@ -125,6 +156,16 @@ function merge(all,since){
    tasks.delete(id);
   }
  }
+ for(const [id,tomb] of removedVisits){
+  const record=visits.get(id);
+  if(record&&tomb.deletedAt>=(record.updatedAt||""))visits.delete(id);
+ }
+ for(const [id,tomb] of removedPeople){
+  const person=people.get(id);
+  if(person&&tomb.deletedAt>=(person.updatedAt||""))people.delete(id);
+ }
+ for(const [id,visit] of visits)if(!people.has(visit.personId))visits.delete(id);
+ for(const [id,visit] of preservedVisits)if(!people.has(visit.personId))preservedVisits.delete(id);
  for(const [id,r] of removedCats){const x=cats.get(id);if(x&&!x.builtIn&&r.deletedAt>=(x.updatedAt||""))cats.delete(id)}
  const defaults=hooks.defaultCategories();
  for(const d of defaults)if(!cats.has(d.id))cats.set(d.id,d);
@@ -133,10 +174,14 @@ function merge(all,since){
   return (x<0?999:x)-(y<0?999:y)||a.name.localeCompare(b.name,"es");
  });
  return {snapshot:{
-  version:2,categories:sortedCategories,
+  version:3,categories:sortedCategories,
   tasks:[...tasks.values(),...preserved.values()].sort((a,b)=>a.id.localeCompare(b.id)),
   deletedTasks:[...removed.values()].sort((a,b)=>a.id.localeCompare(b.id)),
-  deletedCategories:[...removedCats.values()].sort((a,b)=>a.id.localeCompare(b.id))
+  deletedCategories:[...removedCats.values()].sort((a,b)=>a.id.localeCompare(b.id)),
+  groupPeople:[...people.values()].sort((a,b)=>a.id.localeCompare(b.id)),
+  groupVisits:[...visits.values(),...preservedVisits.values()].sort((a,b)=>a.id.localeCompare(b.id)),
+  deletedGroupPeople:[...removedPeople.values()].sort((a,b)=>a.id.localeCompare(b.id)),
+  deletedGroupVisits:[...removedVisits.values()].sort((a,b)=>a.id.localeCompare(b.id))
  },conflicts};
 }
 async function sync(){

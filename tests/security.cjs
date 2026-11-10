@@ -47,14 +47,18 @@ function engine(){
 }
 test("Drive sube únicamente datos cifrados y permite descifrarlos con la clave",async()=>{
  const {api,uploaded,stored}=engine();api.setCredential("ClavePrivadaDePruebaMuySegura!");
- const snapshot={version:2,tasks:[{id:"x",title:"Meta personal muy confidencial"}],categories:[],deletedTasks:[],deletedCategories:[]};
+ const snapshot={version:3,tasks:[{id:"x",title:"Meta personal muy confidencial"}],categories:[],deletedTasks:[],deletedCategories:[],groupPeople:[{id:"p1",name:"Integrante de prueba privado",updatedAt:"2026-11-10T12:00:00Z"}],groupVisits:[{id:"v1",personId:"p1",date:"2026-11-09",topics:"Temas generales de prueba privados",updatedAt:"2026-11-10T12:00:00Z"}],deletedGroupPeople:[],deletedGroupVisits:[]};
  await api.upload(null,snapshot,"e05b7ed2-195b-4ca0-8764-fb01dbbb5885");
  assert(!uploaded().includes("Meta personal muy confidencial"),"No debe salir título en texto legible");
+ assert(!uploaded().includes("Integrante de prueba privado"),"No debe salir el nombre del integrante en texto legible");
+ assert(!uploaded().includes("Temas generales de prueba privados"),"No deben salir temas de las visitas en texto legible");
  assert.equal(stored().format,"mi-panel-encrypted");
  assert.equal(stored().v,1);
  assert(stored().iv&&stored().salt&&stored().data,"Debe tener IV, salt y datos cifrados");
  const decoded=await api.fetchFile({id:"file-a",name:"mi-panel-sync-v3-e05b7ed2.json"});
  assert.equal(decoded.tasks[0].title,"Meta personal muy confidencial");
+ assert.equal(decoded.groupPeople[0].name,"Integrante de prueba privado");
+ assert.equal(decoded.groupVisits[0].topics,"Temas generales de prueba privados");
  api.setCredential("OtraClaveErronea!");
  await assert.rejects(()=>api.fetchFile({id:"file-a",name:"mi-panel-sync-v3-e05b7ed2.json"}),/No se puede descifrar/);
 });

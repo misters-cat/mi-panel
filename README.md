@@ -148,3 +148,13 @@ Los datos siguen en IndexedDB, con sincronización cifrada Drive solo después d
 ## v1.5.1 · Organización dentro de Congregación
 
 Congregación presenta las cuatro secciones: **Anciano**, **Superintendente de servicio**, **Asignaciones** y **Sup. de Grupo**. Cada una muestra exclusivamente sus pendientes y permite crearlos con la función preseleccionada. Las asignaciones mantienen su flujo de estados Recibida / Preparando / Lista / Realizada. Los pendientes que existan en Congregación sin función válida se conservan y aparecen en **Sin clasificar**, desde donde pueden editarse y reclasificarse. No se modifican las tareas ya guardadas ni la sincronización cifrada.
+
+
+## v1.6.0 · Nueva categoría Grupo y fechas cronológicas
+
+- **Inicio:** Próxima fecha considera tareas con fecha aunque no tengan hora. Por ejemplo, una tarea del 14 de noviembre se destaca antes que un compromiso del 18, sin importar que este último tenga hora asignada. La lista de acción también se ordena cronológicamente y no repite tareas dentro de ella.
+- **Grupo:** categoría independiente accesible desde Mis áreas, Pendientes y Congregación. Registra integrantes (solo nombre para identificar), historial de visitas (fecha y temas generales) y muestra la fecha de la última visita. Permite buscar integrantes, editar visitas y eliminar integrantes o visitas.
+- **Sincronización:** además de pendientes y categorías, el archivo cifrado AES-GCM enviado a Drive ahora incluye integrantes, visitas y marcadores de eliminación. Cada visita es un registro independiente para combinar cambios de iPhone y PC. Las ediciones simultáneas de una misma visita conservan una copia de conflicto señalada para revisión. El guardado local en IndexedDB funciona sin internet, pero la sincronización requiere que Mi Panel esté abierto, conectado, autorizado y con la clave de cifrado introducida.
+- **Privacidad:** el historial de visitas puede contener información de terceros. No introduzcas datos confidenciales, médicos, familiares, pastorales ni otros detalles personales que no sea apropiado conservar. Los registros se guardan en texto legible dentro del navegador de tu dispositivo; se cifran **antes** de subir a Google Drive. Usa dispositivos protegidos con contraseña y mantén respaldos cifrados. Evita compartir tu sesión de Google y la clave de Drive.
+
+Sin Supabase, no se envía contenido a GitHub y no se utiliza Google Calendar para almacenar visitas. Se conserva el comportamiento de la categoría Congregación y sus cuatro funciones.
