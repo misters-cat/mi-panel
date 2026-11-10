@@ -50,6 +50,16 @@ test("la migración conserva tareas existentes y agrega GRANDES METAS",()=>{
  assert.equal(migrated.tasks[0].areaId,"trabajo");
  assert.equal(migrated.settings.theme,"dark");
 });
+test("migrar datos anteriores conserva tareas congregacionales sin función",()=>{
+ const {api}=setup();
+ const migrated=api.migrateState({version:2,tasks:[
+  {id:"old-a",title:"Preparar visitas",areaId:"congregacion",subarea:"Anciano",status:"Pendiente"},
+  {id:"old-b",title:"Pendiente general",areaId:"congregacion",subarea:"",status:"Pendiente"}
+ ],settings:{}});
+ assert.equal(migrated.tasks.length,2);
+ assert.equal(migrated.tasks.find(t=>t.id==="old-a").subarea,"Anciano");
+ assert.equal(migrated.tasks.find(t=>t.id==="old-b").subarea,"");
+});
 test("Mi Panel usa el cliente OAuth configurado sin que sea necesario pegarlo",()=>{
  const {api}=setup();
  assert.equal(api.getState().settings.googleClientId,"305697567217-ir52gouobhlnst0mgsstl9orf8s7m77a.apps.googleusercontent.com");
