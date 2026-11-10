@@ -1,6 +1,6 @@
-/* Mi Panel PWA v1.2.8 — solo borra cachés de esta aplicación, nunca IndexedDB */
-const CACHE="mi-panel-v13-quick-sync";
-const ASSETS=["./","./index.html","./styles.css?v=20261110b","./app.js?v=20261110b","./drive-sync.js?v=20261110b","./manifest.webmanifest","./icon.svg"];
+/* Mi Panel PWA v1.2.9 — solo borra cachés de esta aplicación, nunca IndexedDB */
+const CACHE="mi-panel-v14-rolling-seven-days";
+const ASSETS=["./","./index.html","./styles.css?v=20261110c","./app.js?v=20261110c","./drive-sync.js?v=20261110c","./manifest.webmanifest","./icon.svg"];
 self.addEventListener("install",event=>{
  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));
 });

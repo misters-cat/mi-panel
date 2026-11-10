@@ -80,10 +80,20 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert.match(await page.locator("#app").innerText(),/Revisar el trabajo mañana/);
   console.log("OK: respetar elección de categoría manual");
 
-  assert.equal(await page.locator("#release-chip").innerText(),"v1.2.8");
+  assert.equal(await page.locator("#release-chip").innerText(),"v1.2.9");
   // La sincronización debe estar accesible desde la pantalla principal, incluso desconectada.
   await page.locator('button[data-view="semana"]').first().click();
   assert.equal(await page.locator(".quick-sync").count(),1);
+  const rolling=await page.locator(".days .day").evaluateAll(nodes=>nodes.map(n=>n.getAttribute("data-date")));
+  assert.equal(rolling.length,7);
+  const expected=await page.evaluate(()=>{
+   const d=new Date(),local=x=>x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0");
+   const out=[];for(let n=0;n<7;n++){const next=new Date(d.getFullYear(),d.getMonth(),d.getDate()+n);out.push(local(next))}
+   return out;
+  });
+  assert.deepEqual(rolling,expected,"La franja debe ir desde hoy hasta seis días más tarde");
+  assert.equal(await page.locator(".days .day.today").count(),1);
+  console.log("OK: semana móvil comienza hoy y conserva siete días consecutivos");
   assert.match(await page.locator(".quick-sync").innerText(),/Google Drive/);
   assert.match(await page.locator(".quick-sync").innerText(),/Conectar Google/);
   await page.locator('button[data-view="ajustes"]').first().click();
@@ -96,7 +106,7 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert.match(await page.locator("#app").innerText(),/Sincronización automática/);
   await page.locator("#release-history").waitFor({state:"attached"});
   assert.match(await page.locator("#app").innerText(),/Historial de versiones/);
-  assert.match(await page.locator(".release-latest").innerText(),/1\.2\.8/);
+  assert.match(await page.locator(".release-latest").innerText(),/1\.2\.9/);
   await page.locator("#release-history summary").click();
   assert.match(await page.locator("#release-history").innerText(),/1\.2\.2/);
   assert.match(await page.locator("#release-history").innerText(),/0\.1/);

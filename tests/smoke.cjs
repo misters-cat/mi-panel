@@ -10,7 +10,7 @@ function setup(){
  const cut=source.lastIndexOf("readState().then(");
  assert(cut>0,"No se encontró punto de inicio de la PWA");
  const patched=source.slice(0,cut)+
-  'window.__test={getState,migrateState,saveForm,saveCategory,save,toggle,setDb:x=>{db=x},setState:x=>{state=x},actual:()=>state};\n})();';
+  'window.__test={getState,migrateState,saveForm,saveCategory,save,toggle,rollingDays,setDb:x=>{db=x},setState:x=>{state=x},actual:()=>state};\n})();';
  const toast={textContent:"",classList:{add(){},remove(){}},value:""};
  const elements=new Map();
  const element=id=>{
@@ -84,4 +84,17 @@ test("Si IndexedDB falla, Guardar NO muestra éxito ni mantiene un cambio inexis
  assert.equal(api.actual().tasks.length,0);
  assert.equal(getSaved(),null);
  assert.match(toast.textContent,/No se guardó/i);
+});
+
+test("La semana móvil comienza el martes 10 y termina el lunes 16 de noviembre de 2026",()=>{
+ const {api}=setup();
+ const days=Array.from(api.rollingDays("2026-11-10"));
+ assert.equal(days.length,7);
+ assert.equal(days[0],"2026-11-10");
+ assert.equal(days[6],"2026-11-16");
+});
+test("La semana móvil atraviesa el cierre de mes correctamente",()=>{
+ const {api}=setup();
+ const days=Array.from(api.rollingDays("2026-11-28"));
+ assert.equal(days[6],"2026-12-04");
 });
