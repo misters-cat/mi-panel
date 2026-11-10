@@ -99,3 +99,7 @@ Mi Panel utiliza exclusivamente GitHub Pages y el permiso `drive.appdata` para g
 La sincronización nueva usa archivos `mi-panel-sync-v2-*` y nunca abre, modifica ni elimina los antiguos `mi-panel-sync-v1-*` cifrados. Antes de la primera combinación se crea una copia local de protección en IndexedDB de ese dispositivo. En Ajustes → Seguridad y recuperación puede recuperarse, previa confirmación. Los respaldos manuales opcionales siguen cifrados.
 
 Si hay datos importantes **sólo dentro de los archivos cifrados antiguos** y no en ningún dispositivo, no aparecerán automáticamente en v2; deben recuperarse por separado con su clave original. Los cambios simultáneos pueden generar copias ⚠️ para revisar. No guardes datos confidenciales de terceros.
+
+
+## v1.2.7 · Actualización manual complementaria
+En **Ajustes → Sincronización automática** aparece **Actualizar ahora** cuando la cuenta Google está conectada. Permite traer los cambios del iPhone o PC inmediatamente sin esperar al siguiente ciclo y muestra el estado de sincronización y su fecha y hora. Sigue funcionando la sincronización automática al guardar cambios, recuperar internet, volver a la aplicación y durante su uso. Si caduca OAuth, primero debe reconectarse la cuenta; el botón no renueva los permisos ni almacena tokens. No se modifican los formatos de archivos existentes ni los datos locales al actualizar la versión.
