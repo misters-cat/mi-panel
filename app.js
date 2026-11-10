@@ -111,7 +111,8 @@ function days(){const today=TODAY();return '<div class="days">'+rollingDays(toda
 function areas(){return '<div class="areas">'+state.categories.map(c=>'<button class="area" data-area="'+esc(c.id)+'"><span class="area-icon'+(c.id==="congregacion"?" jw-area-icon":"")+'">'+categoryIcon(c)+'</span><span><b>'+esc(c.name)+'</b><small>'+esc(c.description||"Organización personal")+'</small></span></button>').join("")+'</div>'}
 
 function dayTitle(date){
- return new Intl.DateTimeFormat("es-CL",{weekday:"long",day:"numeric",month:"long"}).format(parseLocal(date));
+ const text=new Intl.DateTimeFormat("es-CL",{weekday:"long",day:"numeric",month:"long"}).format(parseLocal(date)).toLocaleLowerCase("es-CL");
+ return text.charAt(0).toLocaleUpperCase("es-CL")+text.slice(1);
 }
 function sortSchedule(items){
  return [...items].sort((a,b)=>{
@@ -161,7 +162,7 @@ function homeFocusItems(){
  const all=active(),now=TODAY(),end=addDays(now,6);
  const late=sortSchedule(all.filter(t=>t.due&&t.due<now));
  const today=sortSchedule(all.filter(t=>t.due===now));
- const upcoming=sortSchedule(all.filter(t=>t.due&&t.due>now&&t.due<=end));
+ const upcoming=sortSchedule(all.filter(t=>t.due&&t.due>=now&&t.due<=end));
  const picks=(state.settings.weeklyPicks||[]).map(id=>all.find(t=>t.id===id)).filter(Boolean);
  const reminders=reminderTasks();
  let items,title;
@@ -216,7 +217,7 @@ function homeAreaSummary(){
 function week(){
  const now=TODAY(),all=active(),end=addDays(now,6);
  const late=all.filter(t=>t.due&&t.due<now),today=all.filter(t=>t.due===now);
- const upcoming=all.filter(t=>t.due&&t.due>now&&t.due<=end),undated=all.filter(t=>!t.due);
+ const upcoming=all.filter(t=>t.due&&t.due>=now&&t.due<=end),undated=all.filter(t=>!t.due);
  const focus=homeFocusItems(),appointment=nextAppointment();
  const stat=(mode,value,label)=>'<button class="dash-stat '+(homeMode===mode?"dash-stat-selected":"")+'" data-home-mode="'+mode+'" aria-pressed="'+(homeMode===mode?"true":"false")+'"><b>'+value+'</b><span>'+label+'</span></button>';
  const appointmentHtml=appointment?'<section class="next-appointment"><div class="section-kicker">Próximo compromiso</div>'+
@@ -224,9 +225,9 @@ function week(){
  '<div class="appointment-details"><strong>'+esc(appointment.title)+'</strong><span>'+esc(appointment.area)+' · '+esc(appointment.date===now?"Hoy":display(appointment.date))+'</span></div>'+
  (appointment.external?'': '<button class="text-action" data-edit="'+esc(appointment.id)+'">Abrir</button>')+'</div></section>':"";
  return '<div class="dashboard-head"><div><div class="dash-date">'+esc(dayTitle(now))+'</div><h1>Mi día</h1>'+
- '<p>Todo lo importante, a la vista.</p></div>'+quickSync()+'</div>'+
+ '<p>Tus pendientes y compromisos.</p></div>'+quickSync()+'</div>'+
  '<section class="dashboard-stats" aria-label="Resumen de pendientes">'+
- stat("today",today.length,"Para hoy")+stat("overdue",late.length,"Atrasados")+stat("week",upcoming.length,"Siguientes 7 días")+'</section>'+
+ stat("today",today.length,"Para hoy")+stat("overdue",late.length,"Atrasados")+stat("week",upcoming.length,"Próximos 7 días")+'</section>'+
  appointmentHtml+
  '<section class="focus-panel"><div class="focus-title"><div><div class="section-kicker">Tus pendientes</div><h2>'+esc(focus.title)+'</h2></div>'+
  (homeMode!=="focus"?'<button class="text-action" data-home-mode="focus">Ver lo importante</button>':
