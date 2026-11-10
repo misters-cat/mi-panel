@@ -178,6 +178,15 @@ function homeFocusItems(){
  }
  return {items:items.slice(0,5),count:items.length,title};
 }
+function globalSearch(){
+ const q=globalQuery.trim().toLocaleLowerCase("es");
+ const results=q?sortSchedule(state.tasks.filter(t=>
+  [t.title,t.notes,catName(t),...(t.milestones||[]).map(m=>m.text)].join(" ").toLocaleLowerCase("es").includes(q))):state.tasks.slice(0,12);
+ return heading("Buscar","Encuentra tareas por nombre, nota, etapa o categoría")+
+ '<div class="search-area"><input id="global-search" class="field search" type="search" placeholder="Buscar en todo Mi Panel…" value="'+esc(globalQuery)+'" aria-label="Búsqueda global"><span class="small muted">'+results.length+' resultado'+(results.length===1?"":"s")+'</span></div>'+
+ card("Resultados",listTask(results,q?"No se encontraron coincidencias.":"Todavía no hay tareas."))+
+ '<button class="text-action" data-view="pendientes">Ver todos los pendientes</button>';
+}
 function quickSync(){
  const linked=Boolean(cloudClient?.connected()),last=state.settings.lastAutoSynced;
  const short=last&&!Number.isNaN(Date.parse(last))?new Date(last).toLocaleDateString("es-CL",{day:"numeric",month:"short"}):"Pendiente";
