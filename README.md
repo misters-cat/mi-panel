@@ -107,3 +107,7 @@ En **Ajustes → Sincronización automática** aparece **Actualizar ahora** cuan
 
 ## v1.2.8 · Sincronización visible desde Mi semana
 En la pantalla principal, debajo del encabezado, hay una barra compacta con el estado de Google Drive, fecha y hora de última sincronización y un botón **Actualizar ahora**. Si la sesión está desconectada, el mismo lugar muestra **Conectar Google**. No cambia el flujo de sincronización automática ni almacena credenciales. El acceso más detallado sigue en Ajustes.
+
+
+## v1.2.9 · Semana móvil de siete días
+La franja del inicio (**Mi semana**) ahora muestra **hoy y los próximos seis días**, sin esperar al lunes. Por ejemplo, si hoy es martes 10 de noviembre de 2026, se ven martes 10 a lunes 16. El encabezado y el horizonte de prioridades coinciden con esos siete días. Si la aplicación permanece abierta al pasar la medianoche, actualiza la franja automáticamente (aproximadamente en el siguiente minuto) o al recuperar visibilidad. La revisión semanal histórica sigue calculándose de lunes a domingo. Este cambio no modifica las fechas guardadas de las tareas, Google Drive ni IndexedDB.
