@@ -58,3 +58,12 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .release-older{border-top:1px solid var(--line);margin-top:8px;padding-top:9px}
 .release-older summary{cursor:pointer;font-weight:600;font-size:13px;color:var(--primary);padding:9px 4px}
 .release-older summary:focus-visible{outline:2px solid var(--primary);outline-offset:3px;border-radius:5px}
+
+/* Acceso rápido a sincronización en Mi semana */
+.quick-sync{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:13px 15px;margin:0 0 18px;background:var(--card);border:1px solid var(--line);border-radius:16px}
+.quick-sync-info{display:flex;flex-direction:column;gap:4px;min-width:0}
+.quick-sync-title{display:flex;align-items:center;flex-wrap:wrap;gap:9px;color:var(--ink);font-size:13px;font-weight:700}
+.quick-sync-state{color:var(--muted);font-size:11px;font-weight:500}
+.quick-sync-detail{color:var(--muted);font-size:11px;line-height:1.4}
+.quick-sync .btn{flex-shrink:0;white-space:nowrap}
+@media(max-width:480px){.quick-sync{padding:12px;gap:9px}.quick-sync .btn{font-size:11px;padding:9px 10px}.quick-sync-title{font-size:12px}.quick-sync-detail{font-size:10px}}

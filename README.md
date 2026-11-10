@@ -103,3 +103,7 @@ Si hay datos importantes **sólo dentro de los archivos cifrados antiguos** y no
 
 ## v1.2.7 · Actualización manual complementaria
 En **Ajustes → Sincronización automática** aparece **Actualizar ahora** cuando la cuenta Google está conectada. Permite traer los cambios del iPhone o PC inmediatamente sin esperar al siguiente ciclo y muestra el estado de sincronización y su fecha y hora. Sigue funcionando la sincronización automática al guardar cambios, recuperar internet, volver a la aplicación y durante su uso. Si caduca OAuth, primero debe reconectarse la cuenta; el botón no renueva los permisos ni almacena tokens. No se modifican los formatos de archivos existentes ni los datos locales al actualizar la versión.
+
+
+## v1.2.8 · Sincronización visible desde Mi semana
+En la pantalla principal, debajo del encabezado, hay una barra compacta con el estado de Google Drive, fecha y hora de última sincronización y un botón **Actualizar ahora**. Si la sesión está desconectada, el mismo lugar muestra **Conectar Google**. No cambia el flujo de sincronización automática ni almacena credenciales. El acceso más detallado sigue en Ajustes.

@@ -80,8 +80,14 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert.match(await page.locator("#app").innerText(),/Revisar el trabajo mañana/);
   console.log("OK: respetar elección de categoría manual");
 
-  assert.equal(await page.locator("#release-chip").innerText(),"v1.2.7");
+  assert.equal(await page.locator("#release-chip").innerText(),"v1.2.8");
+  // La sincronización debe estar accesible desde la pantalla principal, incluso desconectada.
+  await page.locator('button[data-view="semana"]').first().click();
+  assert.equal(await page.locator(".quick-sync").count(),1);
+  assert.match(await page.locator(".quick-sync").innerText(),/Google Drive/);
+  assert.match(await page.locator(".quick-sync").innerText(),/Conectar Google/);
   await page.locator('button[data-view="ajustes"]').first().click();
+  assert.equal(await page.locator(".quick-sync").count(),0);
   assert.equal(await page.locator("#drive-pass").count(),0);
   assert.equal(await page.locator("#drive-connect").count(),1);
   assert.equal(await page.locator("#drive-now").count(),1);
@@ -90,7 +96,7 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert.match(await page.locator("#app").innerText(),/Sincronización automática/);
   await page.locator("#release-history").waitFor({state:"attached"});
   assert.match(await page.locator("#app").innerText(),/Historial de versiones/);
-  assert.match(await page.locator(".release-latest").innerText(),/1\.2\.7/);
+  assert.match(await page.locator(".release-latest").innerText(),/1\.2\.8/);
   await page.locator("#release-history summary").click();
   assert.match(await page.locator("#release-history").innerText(),/1\.2\.2/);
   assert.match(await page.locator("#release-history").innerText(),/0\.1/);
