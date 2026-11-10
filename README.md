@@ -128,3 +128,19 @@ Al conectar se leen archivos antiguos v2, se combinan los registros, se escribe 
 - **Revisión semanal:** elige hasta tres prioridades locales, además del resumen de completados y atrasados. Estas selecciones no se sincronizan todavía por Google Drive.
 
 Los datos principales siguen en IndexedDB, con confirmación de lectura después de Guardar. Se incluyen pruebas automatizadas con Chromium para las funciones y su persistencia. iOS/Safari necesita comprobación en el dispositivo real. Para actualizar, **no borres datos del sitio ni desinstales** la PWA sin respaldo cifrado.
+
+## v1.5.0 · Tablero de uso diario y diseño profesional
+
+El inicio deja de ser un mosaico de tarjetas repetidas y pasa a llamarse **Mi día**:
+- **Tres indicadores interactivos:** hoy, atrasados y próximos siete días. No incluyen tareas terminadas.
+- **Próximo compromiso:** solo aparece si hay una tarea o evento futuro con hora. Si Google Calendar está autorizado también muestra la próxima cita externa.
+- **Lista de acción:** máximo cinco registros, sin duplicados y ordenados con esta preferencia: atrasados, hoy, tres prioridades elegidas, avisos y próximos. Permite ir a Pendientes si hay más.
+- **Siete días seleccionables:** muestra las tareas de la fecha tocada.
+- **Sin fecha:** acceso directo a pendientes sin programar.
+- **Mis áreas y revisión semanal:** apartados plegables que no quitan espacio a lo urgente.
+
+**Agenda** conserva la semana de siete días y añade un día seleccionado con secuencia horaria. **Pendientes** prioriza las áreas personalizables, la búsqueda y los estados independientes. Los registros y categorías guardados no se alteran.
+
+**Diseño:** Inter con alternativas del sistema, blancos/grises neutros, azul funcional, menos sombras y bordes, cabecera con iconos lineales, estilo compacto para iPhone y computador. Se mantienen los emojis que el usuario eligió en la navegación y en las categorías. El modo oscuro conserva contraste y el color de la barra del navegador se adapta.
+
+Los datos siguen en IndexedDB, con sincronización cifrada Drive solo después de autorizar y proporcionar la clave. El guardado y la sincronización requieren validación real en Safari/iPhone antes de considerarlos verificados en ese dispositivo. No hay notificaciones de fondo con la PWA cerrada.
