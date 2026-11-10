@@ -239,6 +239,17 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   const metrics=await page.evaluate(()=>({inner:innerWidth,documentWidth:document.documentElement.scrollWidth}));
   assert(metrics.documentWidth<=metrics.inner+1,"El diseño móvil no debe desbordarse horizontalmente: "+JSON.stringify(metrics));
   console.log("OK: diseño responsive de ancho móvil y controles reales");
+  await page.setViewportSize({width:1280,height:800});
+  await page.locator('button[data-view="semana"]').first().click();
+  assert.equal(await page.locator(".dashboard-stats .dash-stat").count(),3);
+  const desktop=await page.evaluate(()=>({inner:innerWidth,documentWidth:document.documentElement.scrollWidth}));
+  assert(desktop.documentWidth<=desktop.inner+1,"El diseño de escritorio no debe desbordarse: "+JSON.stringify(desktop));
+  const themeBefore=await page.locator("html").getAttribute("data-theme");
+  await page.locator("#theme").click();
+  const themeAfter=await page.locator("html").getAttribute("data-theme");
+  assert.notEqual(themeBefore,themeAfter,"El botón debe alternar entre tema claro y oscuro");
+  console.log("OK: tablero de escritorio, modo oscuro y contraste de tema");
+
 
   assert.equal(errors.length,0,"Excepciones JS: "+errors.join("; "));
   console.log("OK: sin errores JavaScript de ejecución");
