@@ -111,3 +111,20 @@ En la pantalla principal, debajo del encabezado, hay una barra compacta con el e
 
 ## v1.2.9 · Semana móvil de siete días
 La franja del inicio (**Mi semana**) ahora muestra **hoy y los próximos seis días**, sin esperar al lunes. Por ejemplo, si hoy es martes 10 de noviembre de 2026, se ven martes 10 a lunes 16. El encabezado y el horizonte de prioridades coinciden con esos siete días. Si la aplicación permanece abierta al pasar la medianoche, actualiza la franja automáticamente (aproximadamente en el siguiente minuto) o al recuperar visibilidad. La revisión semanal histórica sigue calculándose de lunes a domingo. Este cambio no modifica las fechas guardadas de las tareas, Google Drive ni IndexedDB.
+
+## v1.3.0 · Seguridad de Google Drive restaurada
+
+La sincronización v1.2.6–1.2.9 enviaba JSON legible a Drive appDataFolder; **no era cifrado de extremo a extremo**. Desde v1.3.0 todos los archivos nuevos se cifran con AES-GCM/PBKDF2 antes de subirlos. La clave elegida no se guarda en la PWA ni GitHub: utiliza exactamente la misma clave de 12 o más caracteres en los dos dispositivos.
+
+Al conectar se leen archivos antiguos v2, se combinan los registros, se escribe el archivo cifrado v3 y se descarga para verificar el descifrado. Solamente después se intenta retirar los antiguos archivos v2 sin cifrar. Si falla la limpieza se mostrará un aviso. Los archivos v1 cifrados antiguos se dejan intactos. La migración requiere autorización de Google en cada dispositivo; desplegar código en GitHub Pages no modifica por sí solo archivos privados de Drive. Antes de migrar, exporta respaldos cifrados locales desde ambos dispositivos.
+
+## v1.4.0 · Productividad y recuperación
+
+- **Papelera:** conserva localmente pendientes borrados durante 30 días. Deshacer o recuperar crea un ID nuevo que evita reaparición del elemento eliminado por sincronización. La Papelera no se sincroniza entre dispositivos.
+- **Grandes Metas:** hasta 20 etapas por meta, marcables desde la tarjeta, con porcentaje de avance. Una etapa por línea del formulario.
+- **Avisos:** elige sin aviso o 0, 1, 3, 7 o 30 días antes del vencimiento. Aparecen en Mi semana mientras la PWA está abierta. No hay notificaciones push con la PWA cerrada.
+- **Agenda:** cuadrícula de siete días navegable por semanas; incluye eventos Google Calendar si está autorizado.
+- **Búsqueda:** lupa de cabecera, por título, nota, categoría o etapa, incluso los completados.
+- **Revisión semanal:** elige hasta tres prioridades locales, además del resumen de completados y atrasados. Estas selecciones no se sincronizan todavía por Google Drive.
+
+Los datos principales siguen en IndexedDB, con confirmación de lectura después de Guardar. Se incluyen pruebas automatizadas con Chromium para las funciones y su persistencia. iOS/Safari necesita comprobación en el dispositivo real. Para actualizar, **no borres datos del sitio ni desinstales** la PWA sin respaldo cifrado.
