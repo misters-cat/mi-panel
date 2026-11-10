@@ -98,7 +98,7 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert.match(await page.locator(".quick-sync").innerText(),/Conectar Google/);
   await page.locator('button[data-view="ajustes"]').first().click();
   assert.equal(await page.locator(".quick-sync").count(),0);
-  assert.equal(await page.locator("#drive-pass").count(),0);
+  assert.equal(await page.locator("#drive-pass").count(),1);
   assert.equal(await page.locator("#drive-connect").count(),1);
   assert.equal(await page.locator("#drive-now").count(),1);
   assert.equal(await page.locator("#drive-now").isDisabled(),true);
@@ -108,7 +108,7 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert.match(await page.locator("#app").innerText(),/cifrado AES-GCM/);
   await page.locator("#release-history").waitFor({state:"attached"});
   assert.match(await page.locator("#app").innerText(),/Historial de versiones/);
-  assert.match(await page.locator(".release-latest").innerText(),/1\.2\.9/);
+  assert.match(await page.locator(".release-latest").innerText(),/1\.3\.0/);
   await page.locator("#release-history summary").click();
   assert.match(await page.locator("#release-history").innerText(),/1\.2\.2/);
   assert.match(await page.locator("#release-history").innerText(),/0\.1/);
