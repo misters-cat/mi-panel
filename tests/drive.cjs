@@ -7,7 +7,7 @@ const {webcrypto}=require("node:crypto");
 function engine(){
  const source=fs.readFileSync("drive-sync.js","utf8");
  assert(source.includes("window.MiPanelCloud={init};"));
- const script=source.replace("window.MiPanelCloud={init};","window.MiPanelCloud={init};window.__mergeForTest=merge;window.__parseCloudPackageForTest=parseCloudPackage;window.__prefixForTest=PREFIX;");
+ const script=source.replace("window.MiPanelCloud={init};","window.MiPanelCloud={init};window.__mergeForTest=merge;window.__parseCloudPackageForTest=parseCloudPackage;window.__prefixForTest=PREFIX;window.__uploadForTest=upload;");
  const window={addEventListener(){}};
  const document={addEventListener(){},getElementById(){return null}};
  const ctx={window,document,console,crypto:webcrypto,TextEncoder,URLSearchParams,setInterval(){}};
@@ -47,18 +47,20 @@ test("Una eliminación sincronizada prevalece sobre la tarea más antigua",()=>{
 
 test("La nueva sincronización ignora el espacio de archivos cifrados antiguos",()=>{
  const {prefix,parseCloudPackage}=engine();
- assert.equal(prefix,"mi-panel-sync-v2-");
+ assert.equal(prefix,"mi-panel-sync-v3-");
  const decoded=parseCloudPackage({format:"mi-panel-auto-sync-v2",version:2,
    tasks:[],categories:[],deletedTasks:[],deletedCategories:[]});
  assert.equal(decoded.tasks.length,0);
  assert.throws(()=>parseCloudPackage({format:"mi-panel-encrypted",v:1,data:"irrelevante"}),/incompatible/);
 });
-test("La nueva sincronización no utiliza contraseña ni cifra la carga de Drive",()=>{
+test("La sincronización cifra antes de subir y valida descifrado",()=>{
  const code=fs.readFileSync("drive-sync.js","utf8");
- assert(!code.includes("hooks.encrypt("));
- assert(!code.includes("hooks.decrypt("));
- assert(!code.includes("drive-pass"));
- assert(code.includes("lastAutoSynced"));
+ assert(code.includes('hooks.encrypt(snapshot,password)'));
+ assert(code.includes('hooks.decrypt(pkg,password)'));
+ assert(code.includes('OLD_PREFIX'));
+ assert(code.includes('method:"DELETE"'));
+ assert(code.includes('await fetchFile({id:savedId,name:PREFIX+id+".json"})'));
+ assert(!code.includes('JSON.stringify({...snapshot,format:FORMAT'));
  assert(code.includes("protectLocal(s)"));
 });
 
