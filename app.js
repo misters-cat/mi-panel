@@ -61,7 +61,49 @@ function sortTasks(ts){return [...ts].sort((a,b)=>((a.due||"9999")>(b.due||"9999
 function counts(){const t=active(),end=weekEnd();return {priority:t.filter(x=>x.priority==="Alta"||x.due&&x.due<=end).length,assign:t.filter(x=>taskKind(x)==="Asignación"&&x.due&&x.due<=addDays(TODAY(),14)).length,waiting:t.filter(x=>x.type==="seguimiento").length}}
 function heading(k,sub){return '<div class="page-head"><div class="eyebrow">Mi Panel · Personal</div><h1>'+esc(k)+'</h1><p class="muted">'+esc(sub)+'</p></div>'}
 function card(title,body,action){return '<section class="card"><div class="cardhead"><h2>'+esc(title)+'</h2>'+(action||"")+'</div>'+body+'</section>'}
-function rowTask(t){let due=t.due?display(t.due):"Sin fecha";let label=catName(t)+(t.subarea?" · "+t.subarea:"");return '<div class="task '+(lastSavedId===t.id?"just-saved":"") +'"><button class="check" data-toggle="'+esc(t.id)+'" title="Marcar realizado" aria-label="Marcar realizado">'+(isDone(t)?"✓":"")+'</button><div class="task-body"><div class="task-title '+(isDone(t)?"done":"")+'">'+esc(t.title)+'</div><div class="meta"><span>'+esc(label)+'</span><span>· '+esc(due)+'</span>'+(t.priority==="Alta"?'<span class="tag warn">Prioritario</span>':"")+(t.repeat&&t.repeat!=="none"?'<span>🔁 '+esc(t.repeat)+'</span>':"")+(taskKind(t)==="Asignación"?'<span class="tag">'+esc(t.status)+'</span>':"")+'</div></div><button class="btn small" data-edit="'+esc(t.id)+'">Ver</button></div>'}
+
+function goalProgress(t){
+ const steps=Array.isArray(t.milestones)?t.milestones:[];
+ const done=steps.filter(s=>s.done).length;
+ return {done,total:steps.length,percent:steps.length?Math.round(done*100/steps.length):0};
+}
+function parseGoalSteps(source,previous=[]){
+ const original=new Map((previous||[]).map(step=>[String(step.text||"").trim().toLocaleLowerCase("es"),step]));
+ return String(source||"").split(/\r?\n/).map(x=>x.trim()).filter(Boolean).slice(0,20).map(text=>{
+  const old=original.get(text.toLocaleLowerCase("es"));
+  return {id:old?.id||uid(),text,done:!!old?.done};
+ });
+}
+function goalStepsMarkup(t){
+ if(catId(t)!=="grandes-metas")return "";
+ const {done,total,percent}=goalProgress(t);
+ if(!total)return '<div class="tiny muted">🎯 Agrega etapas para medir esta meta</div>';
+ return '<div class="goal-block"><div class="goal-status"><span>🎯 '+done+' de '+total+' etapas</span><b>'+percent+'%</b></div>'+
+  '<div class="goal-track" role="progressbar" aria-label="Avance de la meta" aria-valuenow="'+percent+'" aria-valuemin="0" aria-valuemax="100"><span style="width:'+percent+'%"></span></div>'+
+  '<div class="goal-steps">'+t.milestones.map(m=>'<button class="goal-step '+(m.done?"step-done":"")+'" type="button" data-step-toggle="'+esc(t.id)+'" data-step-id="'+esc(m.id)+'" aria-pressed="'+(m.done?"true":"false")+'">'+(m.done?"✅":"◯")+' '+esc(m.text)+'</button>').join("")+'</div></div>';
+}
+async function toggleMilestone(id,stepId){
+ const index=state.tasks.findIndex(t=>t.id===id);if(index<0)return;
+ const before=state.tasks,task=before[index];
+ const milestones=(task.milestones||[]).map(m=>m.id===stepId?{...m,done:!m.done}:m);
+ state.tasks=before.map(t=>t.id===id?{...t,milestones,updatedAt:new Date().toISOString()}:t);
+ try{await save();render()}catch(err){state.tasks=before;toast("No se pudo guardar el avance");console.error(err)}
+}
+
+function rowTask(t){
+ const due=t.due?display(t.due):"Sin fecha";
+ const label=catName(t)+(t.subarea?" · "+t.subarea:"");
+ return '<div class="task '+(lastSavedId===t.id?"just-saved":"")+'">'+
+  '<button class="check" data-toggle="'+esc(t.id)+'" title="Marcar realizado" aria-label="Marcar realizado">'+(isDone(t)?"✓":"")+'</button>'+
+  '<div class="task-body"><div class="task-title '+(isDone(t)?"done":"")+'">'+esc(t.title)+'</div>'+
+  '<div class="meta"><span>'+esc(label)+'</span><span>· '+esc(due)+'</span>'+
+  (t.time?'<span>🕘 '+esc(t.time)+'</span>':"")+
+  (t.priority==="Alta"?'<span class="tag warn">Prioritario</span>':"")+
+  (t.repeat&&t.repeat!=="none"?'<span>🔁 '+esc(t.repeat)+'</span>':"")+
+  (taskKind(t)==="Asignación"?'<span class="tag">'+esc(t.status)+'</span>':"")+
+  '</div>'+goalStepsMarkup(t)+'</div>'+
+  '<button class="btn small" data-edit="'+esc(t.id)+'">Ver</button></div>';
+}
 function listTask(ts,msg){return ts.length?'<div>'+ts.map(rowTask).join("")+'</div>':'<div class="empty">'+esc(msg||"No hay tareas en esta sección")+'</div>'}
 function rollingDays(start){return Array.from({length:7},(_,i)=>addDays(start,i))}
 function days(){const today=TODAY();return '<div class="days">'+rollingDays(today).map(day=>{const d=parseLocal(day);return '<div class="day '+(day===today?"today":"")+'" data-date="'+day+'">'+["D","L","M","M","J","V","S"][d.getDay()]+'<b>'+d.getDate()+'</b></div>'}).join("")+'</div>'}
