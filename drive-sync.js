@@ -4,10 +4,11 @@
 (function(){
 "use strict";
 const SCOPE="https://www.googleapis.com/auth/drive.appdata";
-const PREFIX="mi-panel-sync-v2-";
-const FORMAT="mi-panel-auto-sync-v2";
-let token="",expiration=0,busy=false,timer=null,statusText="Sin conectar",hooks=null;
-function connected(){return Boolean(token&&Date.now()<expiration-60000)}
+const PREFIX="mi-panel-sync-v3-";
+const OLD_PREFIX="mi-panel-sync-v2-";
+const FORMAT="mi-panel-auto-sync-v2"; // Legacy: solo lectura para migrar y retirar archivos sin cifrar
+let token="",password="",expiration=0,busy=false,timer=null,statusText="Sin conectar",hooks=null;
+function connected(){return Boolean(token&&password&&Date.now()<expiration-60000)}
 function setStatus(value){statusText=value;const e=document.getElementById("drive-status");if(e)e.textContent=value}
 async function deviceId(){
  const db=hooks.getDb();if(!db)throw Error("IndexedDB no disponible");
@@ -29,7 +30,7 @@ async function list(){
   const p=new URLSearchParams({spaces:"appDataFolder",fields:"nextPageToken,files(id,name,modifiedTime)",pageSize:"1000"});
   if(page)p.set("pageToken",page);
   const data=await(await call("/files?"+p)).json();
-  files.push(...(data.files||[]).filter(f=>f.name&&f.name.startsWith(PREFIX)));
+  files.push(...(data.files||[]).filter(f=>f.name&&(f.name.startsWith(PREFIX)||f.name.startsWith(OLD_PREFIX))));
   page=data.nextPageToken||"";if(++n>10)throw Error("Hay demasiados archivos para sincronizar");
  }while(page);
  return files;
@@ -48,7 +49,10 @@ function parseCloudPackage(pkg){
 }
 async function fetchFile(file){
  const pkg=await(await call("/files/"+encodeURIComponent(file.id)+"?alt=media")).json();
- return parseCloudPackage(pkg);
+ if(file.name.startsWith(OLD_PREFIX))return parseCloudPackage(pkg);
+ if(pkg?.format!=="mi-panel-encrypted")throw Error("Archivo cifrado incompatible; no se hicieron cambios.");
+ try{return shared(await hooks.decrypt(pkg,password))}
+ catch(e){throw Error("No se puede descifrar Drive. Verifica la misma contraseña en todos los equipos. No se han sobrescrito archivos.")}
 }
 function protectionKey(){return "mi-panel-proteccion-autosync-v2"}
 async function getProtection(){
@@ -81,7 +85,8 @@ async function restoreProtection(){
  }catch(error){console.error(error);hooks.toast("No se pudo recuperar la copia; tus datos actuales siguen intactos")}
 }
 async function upload(file,snapshot,id){
- const body=JSON.stringify({...snapshot,format:FORMAT,version:2,exportedAt:new Date().toISOString()});
+ // Nunca enviar tareas en JSON legible: AES-GCM + PBKDF2 en el navegador.
+ const body=JSON.stringify(await hooks.encrypt(snapshot,password));
  if(file)return (await call("https://www.googleapis.com/upload/drive/v3/files/"+encodeURIComponent(file.id)+"?uploadType=media",{method:"PATCH",headers:{"Content-Type":"application/json"},body})).json();
  const boundary="mp_"+id.replace(/-/g,"");
  const meta={name:PREFIX+id+".json",parents:["appDataFolder"],mimeType:"application/json"};
@@ -151,10 +156,22 @@ async function sync(){
   hooks.setState(updated);
   try{await hooks.persist({skipSync:true,preserveDate:true})}catch(e){hooks.setState(s);throw e}
   const current=shared(hooks.getState()),own=cloud.find(c=>c.file.name===PREFIX+id+".json");
-  if(!own||JSON.stringify(own.content)!==JSON.stringify(current))await upload(own?.file,current,id);
+  if(!own||JSON.stringify(own.content)!==JSON.stringify(current)){
+   const uploaded=await upload(own?.file,current,id);
+   // Validar que Drive guardó el paquete cifrado antes de limpiar formatos antiguos.
+   const savedId=own?.file?.id||uploaded?.id;
+   if(!savedId)throw Error("No se confirmó el ID del archivo cifrado");
+   const verification=await fetchFile({id:savedId,name:PREFIX+id+".json"});
+   if(JSON.stringify(verification)!==JSON.stringify(current))throw Error("Falló la comprobación del archivo cifrado de Drive");
+  }
+  let oldFailures=0;
+  for(const item of cloud.filter(x=>x.file.name.startsWith(OLD_PREFIX))){
+   try{await call("/files/"+encodeURIComponent(item.file.id),{method:"DELETE"})}
+   catch(err){console.warn("No se pudo retirar archivo previo sin cifrar",err);oldFailures++}
+  }
   hooks.getState().settings.lastAutoSynced=new Date().toISOString();
   await hooks.persist({skipSync:true,preserveDate:true});
-  setStatus("Sincronizado: "+new Date().toLocaleString("es-CL")+(result.conflicts?" · ⚠️ Revisa conflictos":""));
+  setStatus("🔐 Sincronización cifrada: "+new Date().toLocaleString("es-CL")+(result.conflicts?" · ⚠️ Revisa conflictos":"")+(oldFailures?" · ⚠️ "+oldFailures+" archivo(s) antiguos aún sin retirar":""));
   hooks.render();
   if(result.conflicts)hooks.toast("Se conservaron versiones en conflicto para revisar");
  }catch(error){
@@ -166,8 +183,9 @@ async function sync(){
  finally{busy=false}
 }
 function schedule(){if(!connected()||!navigator.onLine)return;clearTimeout(timer);timer=setTimeout(()=>sync(),4000)}
-function connect(clientId){
+function connect(clientId,passphrase){
  if(!clientId){hooks.toast("Primero guarda el Client ID OAuth");return}
+ if(!passphrase||passphrase.length<12){hooks.toast("Escribe una clave de cifrado de 12 caracteres o más");return}
  if(!navigator.onLine){hooks.toast("Para autorizar Drive se necesita internet");return}
  try{
   // requestAccessToken debe ejecutarse en el clic del usuario: Safari/iOS bloquea ventanas tardías.
@@ -176,12 +194,14 @@ function connect(clientId){
   const client=oauth.initTokenClient({client_id:clientId.trim(),scope:SCOPE,callback:async response=>{
    if(response.error||!response.access_token||!(response.scope||"").includes(SCOPE)){setStatus("Drive no autorizado");hooks.toast("Permiso de Drive rechazado");return}
    token=response.access_token;expiration=Date.now()+Number(response.expires_in||3500)*1000;
+   password=passphrase;
+   const input=document.getElementById("drive-pass");if(input)input.value="";
    await sync();
   },error_callback:()=>{setStatus("No se completó la ventana de Google");hooks.toast("No se pudo abrir o completar la autorización de Google")}});
   client.requestAccessToken({prompt:"consent"});
  }catch(error){console.error(error);setStatus("No fue posible conectar");hooks.toast("Error de autorización Google")}
 }
-function disconnect(){clearTimeout(timer);token="";expiration=0;setStatus("Desconectado. Los archivos de Drive se conservan.");hooks.render()}
+function disconnect(){clearTimeout(timer);token="";password="";expiration=0;setStatus("Desconectado. Los archivos de Drive se conservan.");hooks.render()}
 function init(api){
  hooks=api;
  window.addEventListener("online",schedule);
