@@ -266,6 +266,121 @@ async function toggleWeeklyPick(id){
  try{await save();render();toast("Prioridades semanales actualizadas")}
  catch(e){state.settings.weeklyPicks=old;toast("No se pudieron guardar las prioridades");console.error(e)}
 }
+
+/* Grupo: registro privado de integrantes y visitas. Solo se sube cifrado con Drive. */
+function personVisits(id){return (state.groupVisits||[]).filter(v=>v.personId===id).sort((a,b)=>b.date.localeCompare(a.date)||(b.updatedAt||"").localeCompare(a.updatedAt||""))}
+function readGroupAfterSave(collection,id){
+ if(!db)throw Error("IndexedDB no disponible");
+ return new Promise((ok,fail)=>{
+  const r=db.transaction("kv","readonly").objectStore("kv").get("state");
+  r.onsuccess=()=>ok((r.result?.[collection]||[]).find(x=>x.id===id));
+  r.onerror=()=>fail(r.error||Error("No se pudo verificar el guardado"));
+ });
+}
+function groupView(){
+ const title=getCat("grupo")?.name||"Grupo";
+ const term=groupQuery.trim().toLocaleLowerCase("es");
+ const people=[...(state.groupPeople||[])].filter(p=>p.name.toLocaleLowerCase("es").includes(term)).sort((a,b)=>a.name.localeCompare(b.name,"es"));
+ const withVisits=state.groupPeople.filter(p=>personVisits(p.id).length).length;
+ return heading(title,"Integrantes y registro de visitas")+
+ '<div class="group-overview"><div><strong>'+state.groupPeople.length+'</strong><span>Integrantes</span></div>'+
+ '<div><strong>'+withVisits+'</strong><span>Con visitas registradas</span></div></div>'+
+ '<div class="group-actions"><input id="group-search" type="search" placeholder="Buscar integrante…" aria-label="Buscar integrante" value="'+esc(groupQuery)+'">'+
+ '<button class="btn primary" id="group-add">Añadir integrante</button></div>'+
+ '<div class="group-persons">'+(people.length?people.map(person=>{
+  const visits=personVisits(person.id),last=visits[0];
+  return '<details class="group-person" data-group-person="'+esc(person.id)+'"><summary><span class="group-person-main"><strong>'+esc(person.name)+'</strong>'+
+  '<small>'+(last?'Última visita: '+esc(display(last.date)):'Sin visitas registradas')+'</small></span>'+
+  '<span class="group-visit-count">'+visits.length+' visita'+(visits.length===1?"":"s")+'</span></summary>'+
+  '<div class="group-person-body"><div class="group-person-actions">'+
+  '<button class="btn small primary" data-group-visit-add="'+esc(person.id)+'">Registrar visita</button>'+
+  '<button class="btn small" data-group-person-edit="'+esc(person.id)+'">Editar nombre</button>'+
+  '<button class="btn small danger" data-group-person-delete="'+esc(person.id)+'">Eliminar integrante</button></div>'+
+  (visits.length?'<div class="group-visit-history">'+visits.map(v=>
+   '<div class="group-visit"><div class="group-visit-header"><time datetime="'+esc(v.date)+'">'+esc(display(v.date))+'</time>'+
+   '<div><button class="text-action" data-group-visit-edit="'+esc(v.id)+'">Editar</button>'+
+   '<button class="text-action group-danger" data-group-visit-delete="'+esc(v.id)+'">Eliminar</button></div></div>'+
+   '<p>'+esc(v.topics)+'</p>'+(v.conflictOf?'<span class="tiny muted">Revisar versión diferente sincronizada</span>':"")+
+   '</div>').join("")+'</div>':'<p class="small muted">Aún no se registran visitas.</p>')+'</div></details>';
+ }).join(""):'<div class="dash-empty"><p>'+ (term?"No hay integrantes con ese nombre.":"Agrega el primer integrante para llevar su historial de visitas.")+'</p></div>')+'</div>'+
+ '<p class="group-privacy">Privacidad: estas notas contienen información de otras personas. Registra solo fechas y temas generales, evita asuntos confidenciales y asegúrate de contar con autorización apropiada. Las fichas se guardan en el dispositivo y se sincronizan cifradas con tu Google Drive cuando está conectado.</p>';
+}
+function groupPersonForm(id){
+ const person=(state.groupPeople||[]).find(p=>p.id===id);
+ modal('<div class="sheethead"><h2>'+(person?"Editar integrante":"Nuevo integrante")+'</h2><button class="x" data-close aria-label="Cerrar">×</button></div>'+
+ '<form id="group-person-form" autocomplete="off"><input type="hidden" name="personId" value="'+esc(person?.id||"")+'">'+
+ field("Nombre del integrante",'<input id="group-name" name="name" maxlength="100" required placeholder="Nombre para identificarlo" value="'+esc(person?.name||"")+'">')+
+ '<p class="note">Evita guardar datos personales que no sean necesarios para el control de visitas.</p>'+
+ '<div class="actions"><button class="btn primary" type="submit">Guardar integrante</button><button class="btn" type="button" data-close>Cancelar</button></div></form>');
+ $("#group-name")?.focus();
+}
+function groupVisitForm(personId,visitId){
+ const person=state.groupPeople.find(x=>x.id===personId);
+ if(!person){toast("No se encontró el integrante");return}
+ const visit=state.groupVisits.find(x=>x.id===visitId&&x.personId===personId);
+ modal('<div class="sheethead"><h2>'+(visit?"Editar visita":"Registrar visita")+'</h2><button class="x" data-close aria-label="Cerrar">×</button></div>'+
+ '<p class="small muted">Integrante: <strong>'+esc(person.name)+'</strong></p>'+
+ '<form id="group-visit-form" autocomplete="off"><input type="hidden" name="personId" value="'+esc(personId)+'"><input type="hidden" name="visitId" value="'+esc(visit?.id||"")+'">'+
+ field("Fecha de la visita",'<input id="group-visit-date" name="date" type="date" required max="'+TODAY()+'" value="'+esc(visit?.date||TODAY())+'">')+
+ field("Temas generales conversados",'<textarea id="group-visit-topics" name="topics" required maxlength="1200" rows="4" placeholder="Resumen breve, sin detalles íntimos ni confidenciales">'+esc(visit?.topics||"")+'</textarea>')+
+ '<p class="note">Solo registra información apropiada para conservar. Las notas se sincronizarán cifradas si Drive está conectado.</p>'+
+ '<div class="actions"><button class="btn primary" type="submit">Guardar visita</button><button class="btn" type="button" data-close>Cancelar</button></div></form>');
+ $("#group-visit-date")?.focus();
+}
+async function groupSavePerson(form){
+ const values=Object.fromEntries(new FormData(form).entries()),name=String(values.name||"").trim();
+ if(!name){toast("Escribe el nombre del integrante");return}
+ if(!db){toast("No se guardó: almacenamiento no disponible");return}
+ const old=state.groupPeople.find(p=>p.id===values.personId);
+ if(state.groupPeople.some(p=>p.id!==old?.id&&p.name.toLocaleLowerCase("es")===name.toLocaleLowerCase("es"))){toast("Ya existe ese nombre");return}
+ const now=new Date().toISOString(),person={id:old?.id||uid(),name,createdAt:old?.createdAt||now,updatedAt:now},previous=state.groupPeople;
+ const submit=form.querySelector('button[type="submit"]');if(submit)submit.disabled=true;
+ state.groupPeople=old?previous.map(p=>p.id===old.id?person:p):[...previous,person];
+ try{
+  await save();
+  const actual=await readGroupAfterSave("groupPeople",person.id);
+  if(!actual||actual.updatedAt!==now)throw Error("No fue posible verificar el integrante guardado");
+  close();render();toast("Integrante guardado");
+ }catch(err){state.groupPeople=previous;if(submit)submit.disabled=false;console.error(err);toast("No se confirmó el guardado del integrante")}
+}
+async function groupSaveVisit(form){
+ const values=Object.fromEntries(new FormData(form).entries()),date=String(values.date||""),topics=String(values.topics||"").trim(),personId=values.personId;
+ if(!state.groupPeople.some(p=>p.id===personId)){toast("No se encontró el integrante");return}
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||date>TODAY()){toast("Selecciona una fecha válida, no futura");return}
+ if(!topics){toast("Describe brevemente los temas generales conversados");return}
+ if(!db){toast("No se guardó: almacenamiento no disponible");return}
+ const old=state.groupVisits.find(v=>v.id===values.visitId&&v.personId===personId),previous=state.groupVisits,now=new Date().toISOString();
+ const visit={id:old?.id||uid(),personId,date,topics,createdAt:old?.createdAt||now,updatedAt:now};
+ const submit=form.querySelector('button[type="submit"]');if(submit)submit.disabled=true;
+ state.groupVisits=old?previous.map(v=>v.id===old.id?visit:v):[...previous,visit];
+ try{
+  await save();
+  const actual=await readGroupAfterSave("groupVisits",visit.id);
+  if(!actual||actual.updatedAt!==now)throw Error("No fue posible confirmar la visita");
+  close();render();const details=document.querySelector('[data-group-person="'+personId+'"]');if(details)details.open=true;
+  toast("Visita guardada y verificada");
+ }catch(err){state.groupVisits=previous;if(submit)submit.disabled=false;console.error(err);toast("No se pudo confirmar la visita guardada")}
+}
+async function groupDeleteVisit(id){
+ const item=state.groupVisits.find(x=>x.id===id);if(!item)return;
+ if(!confirm("¿Eliminar este registro de visita?"))return;
+ const before=state.groupVisits,oldDeleted=state.deletedGroupVisits,now=new Date().toISOString();
+ state.groupVisits=before.filter(x=>x.id!==id);
+ state.deletedGroupVisits=[...oldDeleted,{id,deletedAt:now}];
+ try{await save();render();toast("Visita eliminada")}
+ catch(e){state.groupVisits=before;state.deletedGroupVisits=oldDeleted;console.error(e);toast("No se pudo eliminar la visita")}
+}
+async function groupDeletePerson(id){
+ const person=state.groupPeople.find(x=>x.id===id);if(!person)return;
+ if(!confirm('¿Eliminar "'+person.name+'" y todas sus visitas registradas? Esta acción no se puede deshacer sin un respaldo.'))return;
+ const p=state.groupPeople,v=state.groupVisits,dp=state.deletedGroupPeople,dv=state.deletedGroupVisits;
+ const now=new Date().toISOString(),related=v.filter(x=>x.personId===id);
+ state.groupPeople=p.filter(x=>x.id!==id);state.groupVisits=v.filter(x=>x.personId!==id);
+ state.deletedGroupPeople=[...dp,{id,deletedAt:now}];state.deletedGroupVisits=[...dv,...related.map(x=>({id:x.id,deletedAt:now}))];
+ try{await save();render();toast("Integrante y visitas eliminados")}
+ catch(e){state.groupPeople=p;state.groupVisits=v;state.deletedGroupPeople=dp;state.deletedGroupVisits=dv;console.error(e);toast("No se pudo eliminar el integrante")}
+}
+
 function congregation(){
  const tasks=active().filter(t=>catId(t)==="congregacion");
  const group=sub=>sortTasks(tasks.filter(t=>t.subarea===sub));
@@ -571,9 +686,25 @@ document.addEventListener("click",async e=>{const summary=e.target.closest("deta
  }if(btn.dataset.homeMode){homeMode=btn.dataset.homeMode;render();return}
  if(btn.dataset.homeDay){homeSelectedDay=btn.dataset.homeDay;homeMode="day";render();return}
  if(btn.dataset.homeUnscheduled!==undefined){filter="Sin fecha";navigate("pendientes");return}
- if(btn.dataset.close!==undefined){close();return}if(btn.dataset.view){navigate(btn.dataset.view);return}if(btn.id==="add"||btn.id==="add-list"){form(null,filter);return}if(btn.id==="manage-categories"){manageCategories();return}if(btn.id==="back-categories"){manageCategories();return}if(btn.dataset.catEdit){categoryForm(btn.dataset.catEdit);return}if(btn.id==="cat-new"){categoryForm(null);return}if(btn.dataset.catDelete){await deleteCategory(btn.dataset.catDelete);return}if(btn.dataset.newSub){form(null,btn.dataset.newSub);return}if(btn.dataset.area){filter=btn.dataset.area;navigate("pendientes");return}if(btn.dataset.filter){filter=btn.dataset.filter;render();return}if(btn.dataset.edit){const t=state.tasks.find(x=>x.id===btn.dataset.edit);if(t){form(t);appendCalendarButton(t)}return}if(btn.dataset.weekPick){await toggleWeeklyPick(btn.dataset.weekPick);return}if(btn.dataset.stepToggle){await toggleMilestone(btn.dataset.stepToggle,btn.dataset.stepId);return}if(btn.dataset.agendaDay){agendaSelectedDay=btn.dataset.agendaDay;render();return}if(btn.dataset.agenda){agendaOffset=btn.dataset.agenda==="today"?0:agendaOffset+Number(btn.dataset.agenda);agendaSelectedDay=btn.dataset.agenda==="today"?TODAY():addDays(TODAY(),agendaOffset*7);render();return}if(btn.dataset.toggle){await toggle(btn.dataset.toggle);return}if(btn.dataset.restoreTask){await restoreDeleted(btn.dataset.restoreTask);return}if(btn.id==="empty-trash"){await emptyTrash();return}if(btn.dataset.delete){await del(btn.dataset.delete);return}if(btn.dataset.theme){state.settings.theme=btn.dataset.theme;await save();render();return}if(btn.id==="theme"){state.settings.theme=state.settings.theme==="dark"?"light":"dark";await save();render();return}if(btn.id==="export"){await exportBackup();return}if(btn.id==="restore"){await importBackup();return}if(btn.id==="ocr"){await ocr();return}if(btn.id==="google-connect"){await googleConnect();return}if(btn.id==="drive-connect"){const pass=$("#drive-pass");if(!pass){navigate("ajustes");toast("Ingresa la clave de cifrado en Ajustes");return}await cloudClient?.connect(state.settings.googleClientId,pass.value);return}if(btn.id==="drive-now"){if(!cloudClient?.connected()){render();toast("Vuelve a conectar tu cuenta Google para actualizar");return}btn.disabled=true;btn.textContent="⏳ Sincronizando…";try{await cloudClient?.sync()}finally{const current=$("#drive-now");if(current){current.disabled=!cloudClient?.connected();current.textContent="🔄 Actualizar ahora"}}return}if(btn.id==="drive-restore-protection"){await cloudClient?.restoreProtection();return}if(btn.id==="drive-disconnect"){cloudClient?.disconnect();return}if(btn.id==="storage-check"){await storageDiagnostics();return}if(btn.id==="force-refresh"||btn.id==="update-now"){await refreshApp();return}if(btn.id==="reveal"){$("#nav").classList.remove("hide-nav");$("#reveal").classList.add("hidden");return}});
-document.addEventListener("submit",async e=>{if(e.target.getAttribute("id")==="task-form"){e.preventDefault();if(e.target.dataset.saving==="1")return;e.target.dataset.saving="1";try{await saveForm(e.target)}finally{e.target.dataset.saving=""}}if(e.target.getAttribute("id")==="category-form"){e.preventDefault();if(e.target.dataset.saving==="1")return;e.target.dataset.saving="1";try{await saveCategory(e.target)}finally{e.target.dataset.saving=""}}if(e.target.getAttribute("id")==="google-config"){e.preventDefault();state.settings.googleClientId=new FormData(e.target).get("clientId").trim();await save();render();toast("Client ID guardado en este dispositivo")}});
-document.addEventListener("input",e=>{if(e.target.id==="global-search"){const position=e.target.selectionStart;globalQuery=e.target.value;render();const el=$("#global-search");el?.focus();el?.setSelectionRange(position,position)}if(e.target.id==="search"){const position=e.target.selectionStart;search=e.target.value;render();const s=$("#search");s.focus();s.setSelectionRange(position,position)}});
+ if(btn.dataset.close!==undefined){close();return}if(btn.dataset.view){navigate(btn.dataset.view);return}if(btn.id==="add"||btn.id==="add-list"){form(null,filter);return}if(btn.id==="group-add"){groupPersonForm(null);return}
+ if(btn.dataset.groupPersonEdit){groupPersonForm(btn.dataset.groupPersonEdit);return}
+ if(btn.dataset.groupPersonDelete){await groupDeletePerson(btn.dataset.groupPersonDelete);return}
+ if(btn.dataset.groupVisitAdd){groupVisitForm(btn.dataset.groupVisitAdd,null);return}
+ if(btn.dataset.groupVisitEdit){const visit=state.groupVisits.find(v=>v.id===btn.dataset.groupVisitEdit);if(visit)groupVisitForm(visit.personId,visit.id);return}
+ if(btn.dataset.groupVisitDelete){await groupDeleteVisit(btn.dataset.groupVisitDelete);return}
+ if(btn.id==="manage-categories"){manageCategories();return}if(btn.id==="back-categories"){manageCategories();return}if(btn.dataset.catEdit){categoryForm(btn.dataset.catEdit);return}if(btn.id==="cat-new"){categoryForm(null);return}if(btn.dataset.catDelete){await deleteCategory(btn.dataset.catDelete);return}if(btn.dataset.newSub){form(null,btn.dataset.newSub);return}if(btn.dataset.area){filter=btn.dataset.area;navigate("pendientes");return}if(btn.dataset.filter){filter=btn.dataset.filter;render();return}if(btn.dataset.edit){const t=state.tasks.find(x=>x.id===btn.dataset.edit);if(t){form(t);appendCalendarButton(t)}return}if(btn.dataset.weekPick){await toggleWeeklyPick(btn.dataset.weekPick);return}if(btn.dataset.stepToggle){await toggleMilestone(btn.dataset.stepToggle,btn.dataset.stepId);return}if(btn.dataset.agendaDay){agendaSelectedDay=btn.dataset.agendaDay;render();return}if(btn.dataset.agenda){agendaOffset=btn.dataset.agenda==="today"?0:agendaOffset+Number(btn.dataset.agenda);agendaSelectedDay=btn.dataset.agenda==="today"?TODAY():addDays(TODAY(),agendaOffset*7);render();return}if(btn.dataset.toggle){await toggle(btn.dataset.toggle);return}if(btn.dataset.restoreTask){await restoreDeleted(btn.dataset.restoreTask);return}if(btn.id==="empty-trash"){await emptyTrash();return}if(btn.dataset.delete){await del(btn.dataset.delete);return}if(btn.dataset.theme){state.settings.theme=btn.dataset.theme;await save();render();return}if(btn.id==="theme"){state.settings.theme=state.settings.theme==="dark"?"light":"dark";await save();render();return}if(btn.id==="export"){await exportBackup();return}if(btn.id==="restore"){await importBackup();return}if(btn.id==="ocr"){await ocr();return}if(btn.id==="google-connect"){await googleConnect();return}if(btn.id==="drive-connect"){const pass=$("#drive-pass");if(!pass){navigate("ajustes");toast("Ingresa la clave de cifrado en Ajustes");return}await cloudClient?.connect(state.settings.googleClientId,pass.value);return}if(btn.id==="drive-now"){if(!cloudClient?.connected()){render();toast("Vuelve a conectar tu cuenta Google para actualizar");return}btn.disabled=true;btn.textContent="⏳ Sincronizando…";try{await cloudClient?.sync()}finally{const current=$("#drive-now");if(current){current.disabled=!cloudClient?.connected();current.textContent="🔄 Actualizar ahora"}}return}if(btn.id==="drive-restore-protection"){await cloudClient?.restoreProtection();return}if(btn.id==="drive-disconnect"){cloudClient?.disconnect();return}if(btn.id==="storage-check"){await storageDiagnostics();return}if(btn.id==="force-refresh"||btn.id==="update-now"){await refreshApp();return}if(btn.id==="reveal"){$("#nav").classList.remove("hide-nav");$("#reveal").classList.add("hidden");return}});
+document.addEventListener("submit",async e=>{
+ const formId=e.target.getAttribute("id");
+ if(formId==="group-person-form"||formId==="group-visit-form"){
+  e.preventDefault();
+  const form=e.target;if(form.dataset.saving==="1")return;
+  form.dataset.saving="1";
+  try{if(formId==="group-person-form")await groupSavePerson(form);else await groupSaveVisit(form)}
+  finally{form.dataset.saving=""}
+  return;
+ }
+ if(e.target.getAttribute("id")==="task-form"){e.preventDefault();if(e.target.dataset.saving==="1")return;e.target.dataset.saving="1";try{await saveForm(e.target)}finally{e.target.dataset.saving=""}}if(e.target.getAttribute("id")==="category-form"){e.preventDefault();if(e.target.dataset.saving==="1")return;e.target.dataset.saving="1";try{await saveCategory(e.target)}finally{e.target.dataset.saving=""}}if(e.target.getAttribute("id")==="google-config"){e.preventDefault();state.settings.googleClientId=new FormData(e.target).get("clientId").trim();await save();render();toast("Client ID guardado en este dispositivo")}});
+document.addEventListener("input",e=>{if(e.target.id==="group-search"){const cursor=e.target.selectionStart;groupQuery=e.target.value;render();const input=$("#group-search");if(input){input.focus();input.setSelectionRange(cursor,cursor)}return}if(e.target.id==="global-search"){const position=e.target.selectionStart;globalQuery=e.target.value;render();const el=$("#global-search");el?.focus();el?.setSelectionRange(position,position)}if(e.target.id==="search"){const position=e.target.selectionStart;search=e.target.value;render();const s=$("#search");s.focus();s.setSelectionRange(position,position)}});
 document.addEventListener("click",e=>{if(e.target?.id==="overlay")close()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")close()});
 // La navegación inferior permanece visible y estable: evita perder acceso al cambiar de sección.
