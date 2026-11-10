@@ -82,7 +82,7 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert.match(await page.locator("#app").innerText(),/Revisar el trabajo mañana/);
   console.log("OK: respetar elección de categoría manual");
 
-  assert.equal(await page.locator("#release-chip").innerText(),"v1.5.0");
+  assert.equal(await page.locator("#release-chip").innerText(),"v1.5.1");
   // La sincronización debe estar accesible desde la pantalla principal, incluso desconectada.
   await page.locator('button[data-view="semana"]').first().click();
   assert.equal(await page.locator(".quick-sync").count(),1);
@@ -110,7 +110,7 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert.match(await page.locator("#app").innerText(),/cifrado AES-GCM/);
   await page.locator("#release-history").waitFor({state:"attached"});
   assert.match(await page.locator("#app").innerText(),/Historial de versiones/);
-  assert.match(await page.locator(".release-latest").innerText(),/1\.5\.0/);
+  assert.match(await page.locator(".release-latest").innerText(),/1\.5\.1/);
   await page.locator("#release-history summary").click();
   assert.match(await page.locator("#release-history").innerText(),/1\.2\.2/);
   assert.match(await page.locator("#release-history").innerText(),/0\.1/);
@@ -251,6 +251,31 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert.notEqual(themeBefore,themeAfter,"El botón debe alternar entre tema claro y oscuro");
   console.log("OK: tablero de escritorio, modo oscuro y contraste de tema");
 
+
+
+  // Congregación conserva sus funciones e incorpora Sup. de Grupo.
+  await page.locator('button[data-view="congregacion"]').first().click();
+  const categories=["Anciano","Superintendente de servicio","Asignaciones","Sup. de Grupo"];
+  for(const category of categories){
+   const section=page.locator(".cong-card-grid .card").filter({has:page.locator("h2", {hasText:category})});
+   assert.equal(await section.count(),1,"Falta la sección "+category);
+   assert.equal(await section.locator('button[data-new-sub]').getAttribute("data-new-sub"),category);
+  }
+  assert.equal(await page.locator(".cong-card-grid .card").count(),4);
+  await page.locator('button[data-new-sub="Sup. de Grupo"]').click();
+  assert.equal(await page.locator("#area").inputValue(),"congregacion");
+  assert.equal(await page.locator("#sub").inputValue(),"Sup. de Grupo");
+  await page.locator("#title").fill("Organizar visita del grupo");
+  await page.locator('#task-form button[type="submit"]').click();
+  await page.locator(".save-banner").waitFor({timeout:8000});
+  await page.locator('button[data-view="congregacion"]').first().click();
+  const groupCard=page.locator(".cong-card-grid .card").filter({has:page.locator("h2",{hasText:"Sup. de Grupo"})});
+  assert.match(await groupCard.innerText(),/Organizar visita del grupo/);
+  await page.reload({waitUntil:"domcontentloaded"});
+  await page.locator('button[data-view="congregacion"]').first().click();
+  const groupAfterReload=page.locator(".cong-card-grid .card").filter({has:page.locator("h2",{hasText:"Sup. de Grupo"})});
+  assert.match(await groupAfterReload.innerText(),/Organizar visita del grupo/);
+  console.log("OK: cuatro funciones de Congregación, creación y persistencia de Sup. de Grupo");
 
   assert.equal(errors.length,0,"Excepciones JS: "+errors.join("; "));
   console.log("OK: sin errores JavaScript de ejecución");

@@ -144,3 +144,7 @@ El inicio deja de ser un mosaico de tarjetas repetidas y pasa a llamarse **Mi d�
 **Diseño:** Inter con alternativas del sistema, blancos/grises neutros, azul funcional, menos sombras y bordes, cabecera con iconos lineales, estilo compacto para iPhone y computador. Se mantienen los emojis que el usuario eligió en la navegación y en las categorías. El modo oscuro conserva contraste y el color de la barra del navegador se adapta.
 
 Los datos siguen en IndexedDB, con sincronización cifrada Drive solo después de autorizar y proporcionar la clave. El guardado y la sincronización requieren validación real en Safari/iPhone antes de considerarlos verificados en ese dispositivo. No hay notificaciones de fondo con la PWA cerrada.
+
+## v1.5.1 · Organización dentro de Congregación
+
+Congregación presenta las cuatro secciones: **Anciano**, **Superintendente de servicio**, **Asignaciones** y **Sup. de Grupo**. Cada una muestra exclusivamente sus pendientes y permite crearlos con la función preseleccionada. Las asignaciones mantienen su flujo de estados Recibida / Preparando / Lista / Realizada. Los pendientes que existan en Congregación sin función válida se conservan y aparecen en **Sin clasificar**, desde donde pueden editarse y reclasificarse. No se modifican las tareas ya guardadas ni la sincronización cifrada.
