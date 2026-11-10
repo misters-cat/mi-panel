@@ -1,14 +1,14 @@
 {
   "id": "./",
-  "name": "Mi Panel · Mi semana",
+  "name": "Mi Panel · Organizador personal",
   "short_name": "Mi Panel",
-  "description": "Agenda y pendientes personales",
+  "description": "Tus tareas de hoy, agenda y prioridades",
   "lang": "es-CL",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f5f4f0",
-  "theme_color": "#f5f4f0",
+  "background_color": "#f8fafc",
+  "theme_color": "#f8fafc",
   "icons": [
     {
       "src": "./icon.svg",
