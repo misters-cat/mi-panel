@@ -551,7 +551,7 @@ document.addEventListener("submit",async e=>{if(e.target.getAttribute("id")==="t
 document.addEventListener("input",e=>{if(e.target.id==="global-search"){const position=e.target.selectionStart;globalQuery=e.target.value;render();const el=$("#global-search");el?.focus();el?.setSelectionRange(position,position)}if(e.target.id==="search"){const position=e.target.selectionStart;search=e.target.value;render();const s=$("#search");s.focus();s.setSelectionRange(position,position)}});
 document.addEventListener("click",e=>{if(e.target?.id==="overlay")close()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")close()});
-window.addEventListener("scroll",()=>{if(scrolling)return;scrolling=true;requestAnimationFrame(()=>{const y=window.scrollY;if(y>130&&y>lastScroll+8){$("#nav").classList.add("hide-nav");$("#reveal").classList.remove("hidden")}else if(y<lastScroll-8||y<70){$("#nav").classList.remove("hide-nav");$("#reveal").classList.add("hidden")}lastScroll=y;scrolling=false})},{passive:true});
+// La navegación inferior permanece visible y estable: evita perder acceso al cambiar de sección.
 window.addEventListener("online",updateNetwork);window.addEventListener("offline",updateNetwork);
 readState().then(()=>{watchUpdates();renderStorageWarning();cloudClient=window.MiPanelCloud?.init({getState:()=>state,setState:x=>{state=x},getDb:()=>db,persist:save,normalize:migrateState,defaultCategories:()=>DEFAULT_CATEGORIES,encrypt,decrypt,loadGIS,render,toast});render();if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(console.warn)});
 })();
