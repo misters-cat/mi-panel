@@ -150,6 +150,7 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert.match(await page.locator(".notice-list").innerText(),/Meta con etapas de prueba/);
   const firstPick=page.locator("[data-week-pick]").first();
   await firstPick.click();
+  await page.waitForFunction(()=>document.querySelector(".review-picks")?.textContent.includes("(1/3)"));
   assert.match(await page.locator(".review-picks").innerText(),/1\/3/);
   await page.reload({waitUntil:"domcontentloaded"});
   assert.match(await page.locator(".review-picks").innerText(),/1\/3/);
