@@ -80,7 +80,7 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert.match(await page.locator("#app").innerText(),/Revisar el trabajo mañana/);
   console.log("OK: respetar elección de categoría manual");
 
-  assert.equal(await page.locator("#release-chip").innerText(),"v1.3.0");
+  assert.equal(await page.locator("#release-chip").innerText(),"v1.4.0");
   // La sincronización debe estar accesible desde la pantalla principal, incluso desconectada.
   await page.locator('button[data-view="semana"]').first().click();
   assert.equal(await page.locator(".quick-sync").count(),1);
@@ -108,7 +108,7 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert.match(await page.locator("#app").innerText(),/cifrado AES-GCM/);
   await page.locator("#release-history").waitFor({state:"attached"});
   assert.match(await page.locator("#app").innerText(),/Historial de versiones/);
-  assert.match(await page.locator(".release-latest").innerText(),/1\.3\.0/);
+  assert.match(await page.locator(".release-latest").innerText(),/1\.4\.0/);
   await page.locator("#release-history summary").click();
   assert.match(await page.locator("#release-history").innerText(),/1\.2\.2/);
   assert.match(await page.locator("#release-history").innerText(),/0\.1/);
@@ -126,6 +126,66 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert.match(await page.locator("#app").innerText(),/Revisar el trabajo mañana/);
   console.log("OK: recarga con URL nueva conserva datos locales");
   
+
+  // Integración real de Grandes Metas, avisos y agenda.
+  const soon=await page.evaluate(()=>{
+   const d=new Date();d.setDate(d.getDate()+3);
+   return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  });
+  await page.locator("#nav #add").click();
+  await page.locator("#title").fill("Meta con etapas de prueba");
+  await page.locator("#area").selectOption("grandes-metas");
+  await page.locator("#goal-steps").fill("Investigar opciones\nAhorrar dinero\nCompletar meta");
+  await page.locator("#due").fill(soon);
+  await page.locator('select[name="remindDays"]').selectOption("7");
+  await page.locator("#task-form button[type=submit]").click();
+  await page.locator(".goal-track[aria-valuenow='0']").waitFor({timeout:8000});
+  assert.equal(await page.locator(".goal-step").count()>=3,true);
+  await page.locator(".goal-step").first().click();
+  await page.locator(".goal-track[aria-valuenow='33']").waitFor({timeout:8000});
+  console.log("OK: Grandes Metas guarda etapas, cambio de progreso y fecha");
+
+  await page.locator('button[data-view="semana"]').first().click();
+  assert.match(await page.locator("#app").innerText(),/Avisos dentro de Mi Panel/);
+  assert.match(await page.locator(".notice-list").innerText(),/Meta con etapas de prueba/);
+  const firstPick=page.locator("[data-week-pick]").first();
+  await firstPick.click();
+  await page.waitForFunction(()=>document.querySelector(".review-picks")?.textContent.includes("(1/3)"));
+  assert.match(await page.locator(".review-picks").innerText(),/1\/3/);
+  await page.reload({waitUntil:"domcontentloaded"});
+  assert.match(await page.locator(".review-picks").innerText(),/1\/3/);
+  console.log("OK: avisos al abrir Mi Panel y prioridades semanales guardadas");
+
+  await page.locator('button[data-view="agenda"]').first().click();
+  assert.equal(await page.locator(".agenda-day").count(),7);
+  assert.match(await page.locator(".agenda-week-grid").innerText(),/Meta con etapas de prueba/);
+  await page.locator('button[data-agenda="1"]').click();
+  assert.equal(await page.locator(".agenda-day").count(),7);
+  await page.locator('button[data-agenda="today"]').click();
+  assert.match(await page.locator(".agenda-week-grid").innerText(),/Meta con etapas de prueba/);
+  console.log("OK: agenda semanal navegable con fechas y eventos");
+
+  await page.locator('button[data-view="buscar"]').first().click();
+  await page.locator("#global-search").fill("meta con etapas");
+  assert.match(await page.locator("#app").innerText(),/Meta con etapas de prueba/);
+  console.log("OK: búsqueda global devuelve registros");
+
+  await page.locator('button[data-view="pendientes"]').first().click();
+  await page.locator('button[data-filter="grandes-metas"]').click();
+  const goalTask=page.locator(".task").filter({hasText:"Meta con etapas de prueba"}).first();
+  await goalTask.locator("[data-edit]").click();
+  page.once("dialog",dialog=>dialog.accept());
+  await page.locator("#modal [data-delete]").click();
+  await page.locator(".save-banner").waitFor({timeout:8000});
+  assert.match(await page.locator(".save-banner").innerText(),/Pendiente eliminado/);
+  await page.locator('.save-banner [data-restore-task]').click();
+  await page.locator(".goal-track[aria-valuenow='33']").waitFor({timeout:8000});
+  await page.reload({waitUntil:"domcontentloaded"});
+  await page.locator('button[data-view="pendientes"]').first().click();
+  await page.locator('button[data-filter="grandes-metas"]').click();
+  assert.match(await page.locator("#app").innerText(),/Meta con etapas de prueba/);
+  console.log("OK: deshacer eliminación, recuperar meta y conservar avance tras recarga");
+
   assert.equal(errors.length,0,"Excepciones JS: "+errors.join("; "));
   console.log("OK: sin errores JavaScript de ejecución");
   await context.close();
