@@ -246,6 +246,7 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert(desktop.documentWidth<=desktop.inner+1,"El diseño de escritorio no debe desbordarse: "+JSON.stringify(desktop));
   const themeBefore=await page.locator("html").getAttribute("data-theme");
   await page.locator("#theme").click();
+  await page.waitForFunction(previous=>document.documentElement.dataset.theme!==previous,themeBefore);
   const themeAfter=await page.locator("html").getAttribute("data-theme");
   assert.notEqual(themeBefore,themeAfter,"El botón debe alternar entre tema claro y oscuro");
   console.log("OK: tablero de escritorio, modo oscuro y contraste de tema");
