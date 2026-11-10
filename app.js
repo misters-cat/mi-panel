@@ -28,7 +28,7 @@ function migrateState(x){
 const S=["Anciano","Superintendente de servicio","Asignaciones"];
 const STAGES=["Recibida","Preparando","Lista","Realizada"];
 const GOOGLE_CLIENT_ID="305697567217-ir52gouobhlnst0mgsstl9orf8s7m77a.apps.googleusercontent.com";
-const APP_VERSION="1.4.0";
+const APP_VERSION="1.5.0";
 const TODAY=()=>iso(new Date());
 const uid=()=>crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random().toString(36).slice(2);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -41,6 +41,7 @@ function weekEnd(){return addDays(TODAY(),6)}
 function getState(){return {version:2,tasks:[],trash:[],categories:DEFAULT_CATEGORIES.map(c=>({...c})),deletedTasks:[],deletedCategories:[],settings:{theme:"auto",googleClientId:GOOGLE_CLIENT_ID,lastBackup:null,lastSynced:null,weeklyPicks:[]},updatedAt:new Date().toISOString()}}
 let state=getState(),view="semana",filter="Todas",search="",connected=false,token="",googleEvents=[],hiding=false,lastScroll=0,lastSavedId=null,lastDeletedId=null,agendaOffset=0,globalQuery="";
 let db,cloudClient=null,storageError="",lastRenderedDay=TODAY();
+let homeMode="focus",homeSelectedDay=TODAY(),agendaSelectedDay=TODAY();
 function openDB(){return new Promise((ok,fail)=>{const r=indexedDB.open("mi-panel-db",1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains("kv"))r.result.createObjectStore("kv")};r.onsuccess=()=>ok(r.result);r.onerror=()=>fail(r.error)})}
 async function readState(){try{db=await openDB();const x=await new Promise((ok,fail)=>{const t=db.transaction("kv","readonly").objectStore("kv").get("state");t.onsuccess=()=>ok(t.result);t.onerror=()=>fail(t.error)});state=migrateState(x)}catch(err){storageError="No se pudo abrir el almacenamiento local. Tus cambios no se guardarán hasta resolverlo.";console.warn("IndexedDB no disponible",err);toast("⚠️ No se pudo abrir el almacenamiento local")}}
 async function save(options={}){
@@ -108,43 +109,115 @@ function listTask(ts,msg){return ts.length?'<div>'+ts.map(rowTask).join("")+'</d
 function rollingDays(start){return Array.from({length:7},(_,i)=>addDays(start,i))}
 function days(){const today=TODAY();return '<div class="days">'+rollingDays(today).map(day=>{const d=parseLocal(day);return '<div class="day '+(day===today?"today":"")+'" data-date="'+day+'">'+["D","L","M","M","J","V","S"][d.getDay()]+'<b>'+d.getDate()+'</b></div>'}).join("")+'</div>'}
 function areas(){return '<div class="areas">'+state.categories.map(c=>'<button class="area" data-area="'+esc(c.id)+'"><span class="area-icon'+(c.id==="congregacion"?" jw-area-icon":"")+'">'+categoryIcon(c)+'</span><span><b>'+esc(c.name)+'</b><small>'+esc(c.description||"Organización personal")+'</small></span></button>').join("")+'</div>'}
-function quickSync(){
- const linked=Boolean(cloudClient?.connected());
- const last=state.settings.lastAutoSynced;
- const date=last&&!Number.isNaN(new Date(last).getTime())?new Date(last).toLocaleString("es-CL",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}):"Aún sin sincronizar";
- return '<section class="quick-sync" aria-label="Sincronización Google Drive">'+
- '<div class="quick-sync-info"><span class="quick-sync-title">☁️ Google Drive <span class="quick-sync-state">'+(linked?"● Conectado":"○ Sin conectar")+'</span></span>'+
- '<span class="quick-sync-detail">'+(linked?"Última sincronización: "+esc(date):"Conecta tu cuenta y clave en Ajustes para sincronizar")+'</span></div>'+
- '<button class="btn small '+(linked?"":"primary")+'" id="'+(linked?"drive-now":"drive-connect")+'" type="button">'+(linked?"🔄 Actualizar ahora":"Conectar Google")+'</button></section>';
-}
-function week(){const m=counts(),now=TODAY(),end=weekEnd();const pri=sortTasks(active().filter(t=>t.priority==="Alta"||t.due&&t.due<=end)).slice(0,6);const upcoming=sortTasks(active().filter(t=>t.due&&t.due>=now&&t.due<=addDays(now,14))).slice(0,5);return heading("Mi semana","Lo importante, sin distracciones · "+display(now)+" – "+display(end))+quickSync()+days()+'<div class="metrics"><div class="metric"><span>Prioridades</span><strong>'+m.priority+'</strong><span>Próximos 7 días</span></div><div class="metric"><span>Asignaciones</span><strong>'+m.assign+'</strong><span>Próximos 14 días</span></div><div class="metric"><span>📬 En espera</span><strong>'+m.waiting+'</strong><span>Seguimientos</span></div></div><div class="grid"><div>'+card("Prioridades de la semana",listTask(pri,"Tu semana está al día."),'<button class="btn small" data-view="pendientes">Ver todas</button>')+card("Próximos compromisos",listTask(upcoming,"Aún no tienes compromisos próximos."),'<button class="btn small" data-view="agenda">Agenda</button>')+reminderPanel()+(state.tasks.length?card("Guardados recientemente",listTask([...state.tasks].sort((a,b)=>(b.updatedAt||b.createdAt||"").localeCompare(a.updatedAt||a.createdAt||"")).slice(0,3))):"")+'</div><div>'+card("Mis áreas",areas())+card("📊 Revisión semanal",weeklyReview())+'</div></div>'}
 
-function reminderTasks(){
- const now=parseLocal(TODAY());
- return sortTasks(active().filter(t=>{
-  if(!t.due||Number(t.remindDays??1)<0)return false;
-  const days=Math.round((parseLocal(t.due).getTime()-now.getTime())/86400000);
-  return days<=Number(t.remindDays??1);
- })).slice(0,8);
+function dayTitle(date){
+ return new Intl.DateTimeFormat("es-CL",{weekday:"long",day:"numeric",month:"long"}).format(parseLocal(date));
 }
-function reminderPanel(){
- const items=reminderTasks();
- return card("🔔 Avisos dentro de Mi Panel",
- items.length?'<div class="notice-list">'+items.map(t=>{
-  const days=Math.round((parseLocal(t.due)-parseLocal(TODAY()))/86400000);
-  const when=days<0?"Atrasado "+(-days)+" día(s)":days===0?"Hoy":days===1?"Mañana":"En "+days+" días";
-  return '<div class="notice-entry"><span class="tag '+(days<0?"danger":days===0?"warn":"")+'">'+when+'</span><button class="notice-link" data-edit="'+esc(t.id)+'">'+esc(t.title)+'</button><span class="tiny muted">'+esc(catName(t))+'</span></div>';
- }).join("")+'</div>':'<p class="small muted">No hay avisos pendientes para las fechas configuradas.</p>'+
- '<p class="tiny muted">Los avisos se muestran aquí cuando abres la aplicación; no son notificaciones con la app cerrada.</p>');
+function sortSchedule(items){
+ return [...items].sort((a,b)=>{
+  const date=(a.due||"9999").localeCompare(b.due||"9999");
+  if(date)return date;
+  if(a.time&&b.time&&a.time!==b.time)return a.time.localeCompare(b.time);
+  if(a.time&&!b.time)return -1;
+  if(!a.time&&b.time)return 1;
+  return ({Alta:0,Normal:1,Baja:2}[a.priority]??1)-({Alta:0,Normal:1,Baja:2}[b.priority]??1);
+ });
 }
-function globalSearch(){
- const q=globalQuery.trim().toLocaleLowerCase("es");
- const results=q?sortTasks(state.tasks.filter(t=>
- [t.title,t.notes,catName(t),...(t.milestones||[]).map(m=>m.text)].join(" ").toLocaleLowerCase("es").includes(q))):state.tasks.slice(0,12);
- return heading("🔎 Buscar","Encuentra pendientes y registros terminados en todas tus categorías")+
- '<div class="search-area"><input id="global-search" class="field search" type="search" placeholder="Buscar por título, nota, etapa o categoría" value="'+esc(globalQuery)+'" aria-label="Búsqueda global"><span class="small muted">'+results.length+' resultado(s)'+(!q?" recientes":"")+'</span></div>'+
- card("Resultados",listTask(results,q?"No encontré coincidencias.":"Todavía no hay pendientes."))+
- '<button class="btn" data-view="pendientes">Volver a pendientes</button>';
+function nextAppointment(){
+ const today=TODAY(),clock=new Date(),hour=String(clock.getHours()).padStart(2,"0")+":"+String(clock.getMinutes()).padStart(2,"0");
+ const tasks=active().filter(t=>t.due&&t.time&&t.due>=today&&(t.due>today||t.time>=hour))
+  .map(t=>({date:t.due,time:t.time,title:t.title,area:catName(t),id:t.id,external:false}));
+ const external=connected?googleEvents.filter(e=>e.start?.dateTime).map(e=>{
+  const timestamp=e.start.dateTime;
+  const d=new Date(timestamp),valid=!Number.isNaN(d.getTime());
+  const date=valid?iso(d):timestamp.slice(0,10);
+  const time=valid?String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"):timestamp.slice(11,16);
+  return {date,time,title:e.summary||"Compromiso",area:"Google Calendar",external:true};
+ }).filter(e=>e.date>=today&&(e.date>today||e.time>=hour)):[];
+ return [...tasks,...external].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time))[0]||null;
+}
+function compactTask(t){
+ const day=t.due?(t.due<TODAY()?"Atrasado · "+display(t.due):t.due===TODAY()?"Hoy":display(t.due)):"Sin fecha";
+ return '<div class="dash-task">'+
+  '<button class="check" data-toggle="'+esc(t.id)+'" aria-label="Marcar como realizada: '+esc(t.title)+'" title="Marcar realizada"></button>'+
+  '<div class="dash-task-main"><div class="dash-task-title">'+esc(t.title)+'</div>'+
+  '<div class="dash-task-detail">'+esc(catName(t))+' · '+(t.time?esc(t.time)+' · ':"")+esc(day)+
+  (t.priority==="Alta"?'<span class="priority-mark">Prioridad alta</span>':"")+'</div></div>'+
+  '<button class="open-task" data-edit="'+esc(t.id)+'" aria-label="Abrir '+esc(t.title)+'">Abrir</button></div>';
+}
+function dashboardRows(items){
+ return items.length?'<div class="dash-task-list">'+items.map(compactTask).join("")+'</div>':
+ '<div class="dash-empty"><p>No hay pendientes para esta selección.</p><button class="btn small" id="add-list">Crear pendiente</button></div>';
+}
+function homeFocusItems(){
+ const all=active(),now=TODAY(),end=addDays(now,6);
+ const late=sortSchedule(all.filter(t=>t.due&&t.due<now));
+ const today=sortSchedule(all.filter(t=>t.due===now));
+ const upcoming=sortSchedule(all.filter(t=>t.due&&t.due>now&&t.due<=end));
+ const picks=(state.settings.weeklyPicks||[]).map(id=>all.find(t=>t.id===id)).filter(Boolean);
+ let items,title;
+ if(homeMode==="overdue"){items=late;title="Atrasados"}
+ else if(homeMode==="today"){items=today;title="Para hoy"}
+ else if(homeMode==="week"){items=upcoming;title="Próximos 7 días"}
+ else if(homeMode==="day"){items=sortSchedule(all.filter(t=>t.due===homeSelectedDay));title="Para "+dayTitle(homeSelectedDay)}
+ else{
+  const seen=new Set();
+  items=[...late,...today,...picks,...upcoming].filter(t=>{
+   if(seen.has(t.id))return false;seen.add(t.id);return true;
+  });
+  title="Qué hacer ahora";
+ }
+ return {items:items.slice(0,5),count:items.length,title};
+}
+function quickSync(){
+ const linked=Boolean(cloudClient?.connected()),last=state.settings.lastAutoSynced;
+ const short=last&&!Number.isNaN(Date.parse(last))?new Date(last).toLocaleDateString("es-CL",{day:"numeric",month:"short"}):"Pendiente";
+ return '<div class="quick-sync" aria-label="Estado de Google Drive">'+
+ '<span class="sync-indicator '+(linked?"sync-ready":"")+'" aria-hidden="true"></span>'+
+ '<span class="quick-sync-info"><span class="quick-sync-title">Google Drive</span>'+
+ '<span class="quick-sync-detail">'+(linked?"Última: "+esc(short):"Sin conectar")+'</span></span>'+
+ '<button class="quick-sync-link" data-view="ajustes">'+(linked?"Configurar":"Conectar Google")+'</button></div>';
+}
+function homeDayStrip(){
+ const today=TODAY(),selected=homeMode==="day"?homeSelectedDay:today;
+ return '<div class="home-day-header"><h2>Próximos siete días</h2><button class="text-action" data-view="agenda">Abrir agenda</button></div>'+
+ '<div class="home-days" aria-label="Elegir día">'+rollingDays(today).map(date=>{
+  const d=parseLocal(date),count=active().filter(t=>t.due===date).length;
+  return '<button class="home-day '+(date===today?"is-today ":"")+(date===selected?"is-selected":"")+'" data-home-day="'+date+'" aria-pressed="'+(homeMode==="day"&&date===homeSelectedDay?"true":"false")+'">'+
+   '<span>'+["dom","lun","mar","mié","jue","vie","sáb"][d.getDay()]+'</span>'+
+   '<b>'+d.getDate()+'</b>'+
+   '<i class="'+(count?"has-items":"")+'" aria-label="'+count+' tareas"></i></button>';
+ }).join("")+'</div>';
+}
+function homeAreaSummary(){
+ return '<details class="home-disclosure"><summary>Mis áreas <span>Ver categorías</span></summary>'+
+ '<div class="home-area-grid">'+state.categories.map(c=>
+ '<button class="home-area" data-area="'+esc(c.id)+'"><span class="home-area-icon">'+categoryIcon(c)+'</span><span>'+esc(c.name)+'</span><b>'+active().filter(t=>catId(t)===c.id).length+'</b></button>'
+ ).join("")+'</div></details>';
+}
+function week(){
+ const now=TODAY(),all=active(),end=addDays(now,6);
+ const late=all.filter(t=>t.due&&t.due<now),today=all.filter(t=>t.due===now);
+ const upcoming=all.filter(t=>t.due&&t.due>now&&t.due<=end),undated=all.filter(t=>!t.due);
+ const focus=homeFocusItems(),appointment=nextAppointment();
+ const stat=(mode,value,label)=>'<button class="dash-stat '+(homeMode===mode?"dash-stat-selected":"")+'" data-home-mode="'+mode+'" aria-pressed="'+(homeMode===mode?"true":"false")+'"><b>'+value+'</b><span>'+label+'</span></button>';
+ const appointmentHtml=appointment?'<section class="next-appointment"><div class="section-kicker">Próximo compromiso</div>'+
+ '<div class="next-appointment-main"><div class="appointment-time">'+esc(appointment.time)+'</div>'+
+ '<div class="appointment-details"><strong>'+esc(appointment.title)+'</strong><span>'+esc(appointment.area)+' · '+esc(appointment.date===now?"Hoy":display(appointment.date))+'</span></div>'+
+ (appointment.external?'': '<button class="text-action" data-edit="'+esc(appointment.id)+'">Abrir</button>')+'</div></section>':"";
+ return '<div class="dashboard-head"><div><div class="dash-date">'+esc(dayTitle(now))+'</div><h1>Mi día</h1>'+
+ '<p>Todo lo importante, a la vista.</p></div>'+quickSync()+'</div>'+
+ '<section class="dashboard-stats" aria-label="Resumen de pendientes">'+
+ stat("today",today.length,"Para hoy")+stat("overdue",late.length,"Atrasados")+stat("week",upcoming.length,"Siguientes 7 días")+'</section>'+
+ appointmentHtml+
+ '<section class="focus-panel"><div class="focus-title"><div><div class="section-kicker">Tus pendientes</div><h2>'+esc(focus.title)+'</h2></div>'+
+ (homeMode!=="focus"?'<button class="text-action" data-home-mode="focus">Ver lo importante</button>':
+ '<span class="counter-label">'+focus.count+' en total</span>')+'</div>'+
+ dashboardRows(focus.items)+(focus.count>5?'<button class="text-action" data-view="pendientes">Ver todos los pendientes</button>':"")+'</section>'+
+ homeDayStrip()+
+ (undated.length?'<div class="unscheduled-strip"><div><strong>Sin programar</strong><span>'+undated.length+' tareas sin fecha</span></div><button class="text-action" data-home-unscheduled>Organizar</button></div>':"")+
+ '<details class="home-disclosure"><summary>Revisión semanal <span>Tres prioridades y avances</span></summary><div class="home-review">'+weeklyReview()+'</div></details>'+
+ homeAreaSummary();
 }
 
 function weeklyReview(){
@@ -415,7 +488,10 @@ document.addEventListener("click",async e=>{const btn=e.target.closest("button")
   try{if(form.getAttribute("id")==="task-form")await saveForm(form);else await saveCategory(form)}
   finally{form.dataset.saving=""}
   return;
- }if(btn.dataset.close!==undefined){close();return}if(btn.dataset.view){navigate(btn.dataset.view);return}if(btn.id==="add"||btn.id==="add-list"){form(null,filter);return}if(btn.id==="manage-categories"){manageCategories();return}if(btn.id==="back-categories"){manageCategories();return}if(btn.dataset.catEdit){categoryForm(btn.dataset.catEdit);return}if(btn.id==="cat-new"){categoryForm(null);return}if(btn.dataset.catDelete){await deleteCategory(btn.dataset.catDelete);return}if(btn.dataset.newSub){form(null,btn.dataset.newSub);return}if(btn.dataset.area){filter=btn.dataset.area;navigate("pendientes");return}if(btn.dataset.filter){filter=btn.dataset.filter;render();return}if(btn.dataset.edit){const t=state.tasks.find(x=>x.id===btn.dataset.edit);if(t){form(t);appendCalendarButton(t)}return}if(btn.dataset.weekPick){await toggleWeeklyPick(btn.dataset.weekPick);return}if(btn.dataset.stepToggle){await toggleMilestone(btn.dataset.stepToggle,btn.dataset.stepId);return}if(btn.dataset.agenda){agendaOffset=btn.dataset.agenda==="today"?0:agendaOffset+Number(btn.dataset.agenda);render();return}if(btn.dataset.toggle){await toggle(btn.dataset.toggle);return}if(btn.dataset.restoreTask){await restoreDeleted(btn.dataset.restoreTask);return}if(btn.id==="empty-trash"){await emptyTrash();return}if(btn.dataset.delete){await del(btn.dataset.delete);return}if(btn.dataset.theme){state.settings.theme=btn.dataset.theme;await save();render();return}if(btn.id==="theme"){state.settings.theme=state.settings.theme==="dark"?"light":"dark";await save();render();return}if(btn.id==="export"){await exportBackup();return}if(btn.id==="restore"){await importBackup();return}if(btn.id==="ocr"){await ocr();return}if(btn.id==="google-connect"){await googleConnect();return}if(btn.id==="drive-connect"){const pass=$("#drive-pass");if(!pass){navigate("ajustes");toast("Ingresa la clave de cifrado en Ajustes");return}await cloudClient?.connect(state.settings.googleClientId,pass.value);return}if(btn.id==="drive-now"){if(!cloudClient?.connected()){render();toast("Vuelve a conectar tu cuenta Google para actualizar");return}btn.disabled=true;btn.textContent="⏳ Sincronizando…";try{await cloudClient?.sync()}finally{const current=$("#drive-now");if(current){current.disabled=!cloudClient?.connected();current.textContent="🔄 Actualizar ahora"}}return}if(btn.id==="drive-restore-protection"){await cloudClient?.restoreProtection();return}if(btn.id==="drive-disconnect"){cloudClient?.disconnect();return}if(btn.id==="storage-check"){await storageDiagnostics();return}if(btn.id==="force-refresh"||btn.id==="update-now"){await refreshApp();return}if(btn.id==="reveal"){$("#nav").classList.remove("hide-nav");$("#reveal").classList.add("hidden");return}});
+ }if(btn.dataset.homeMode){homeMode=btn.dataset.homeMode;render();return}
+ if(btn.dataset.homeDay){homeSelectedDay=btn.dataset.homeDay;homeMode="day";render();return}
+ if(btn.dataset.homeUnscheduled!==undefined){filter="Sin fecha";navigate("pendientes");return}
+ if(btn.dataset.close!==undefined){close();return}if(btn.dataset.view){navigate(btn.dataset.view);return}if(btn.id==="add"||btn.id==="add-list"){form(null,filter);return}if(btn.id==="manage-categories"){manageCategories();return}if(btn.id==="back-categories"){manageCategories();return}if(btn.dataset.catEdit){categoryForm(btn.dataset.catEdit);return}if(btn.id==="cat-new"){categoryForm(null);return}if(btn.dataset.catDelete){await deleteCategory(btn.dataset.catDelete);return}if(btn.dataset.newSub){form(null,btn.dataset.newSub);return}if(btn.dataset.area){filter=btn.dataset.area;navigate("pendientes");return}if(btn.dataset.filter){filter=btn.dataset.filter;render();return}if(btn.dataset.edit){const t=state.tasks.find(x=>x.id===btn.dataset.edit);if(t){form(t);appendCalendarButton(t)}return}if(btn.dataset.weekPick){await toggleWeeklyPick(btn.dataset.weekPick);return}if(btn.dataset.stepToggle){await toggleMilestone(btn.dataset.stepToggle,btn.dataset.stepId);return}if(btn.dataset.agenda){agendaOffset=btn.dataset.agenda==="today"?0:agendaOffset+Number(btn.dataset.agenda);render();return}if(btn.dataset.toggle){await toggle(btn.dataset.toggle);return}if(btn.dataset.restoreTask){await restoreDeleted(btn.dataset.restoreTask);return}if(btn.id==="empty-trash"){await emptyTrash();return}if(btn.dataset.delete){await del(btn.dataset.delete);return}if(btn.dataset.theme){state.settings.theme=btn.dataset.theme;await save();render();return}if(btn.id==="theme"){state.settings.theme=state.settings.theme==="dark"?"light":"dark";await save();render();return}if(btn.id==="export"){await exportBackup();return}if(btn.id==="restore"){await importBackup();return}if(btn.id==="ocr"){await ocr();return}if(btn.id==="google-connect"){await googleConnect();return}if(btn.id==="drive-connect"){const pass=$("#drive-pass");if(!pass){navigate("ajustes");toast("Ingresa la clave de cifrado en Ajustes");return}await cloudClient?.connect(state.settings.googleClientId,pass.value);return}if(btn.id==="drive-now"){if(!cloudClient?.connected()){render();toast("Vuelve a conectar tu cuenta Google para actualizar");return}btn.disabled=true;btn.textContent="⏳ Sincronizando…";try{await cloudClient?.sync()}finally{const current=$("#drive-now");if(current){current.disabled=!cloudClient?.connected();current.textContent="🔄 Actualizar ahora"}}return}if(btn.id==="drive-restore-protection"){await cloudClient?.restoreProtection();return}if(btn.id==="drive-disconnect"){cloudClient?.disconnect();return}if(btn.id==="storage-check"){await storageDiagnostics();return}if(btn.id==="force-refresh"||btn.id==="update-now"){await refreshApp();return}if(btn.id==="reveal"){$("#nav").classList.remove("hide-nav");$("#reveal").classList.add("hidden");return}});
 document.addEventListener("submit",async e=>{if(e.target.getAttribute("id")==="task-form"){e.preventDefault();if(e.target.dataset.saving==="1")return;e.target.dataset.saving="1";try{await saveForm(e.target)}finally{e.target.dataset.saving=""}}if(e.target.getAttribute("id")==="category-form"){e.preventDefault();if(e.target.dataset.saving==="1")return;e.target.dataset.saving="1";try{await saveCategory(e.target)}finally{e.target.dataset.saving=""}}if(e.target.getAttribute("id")==="google-config"){e.preventDefault();state.settings.googleClientId=new FormData(e.target).get("clientId").trim();await save();render();toast("Client ID guardado en este dispositivo")}});
 document.addEventListener("input",e=>{if(e.target.id==="global-search"){const position=e.target.selectionStart;globalQuery=e.target.value;render();const el=$("#global-search");el?.focus();el?.setSelectionRange(position,position)}if(e.target.id==="search"){const position=e.target.selectionStart;search=e.target.value;render();const s=$("#search");s.focus();s.setSelectionRange(position,position)}});
 document.addEventListener("click",e=>{if(e.target?.id==="overlay")close()});
