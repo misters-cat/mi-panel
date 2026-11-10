@@ -322,3 +322,48 @@ h2{font-weight:650;font-size:17px}
 .cong-card-grid .task{gap:8px}
 .cong-card-grid .task .task-title{font-size:13px}
 @media(max-width:760px){.cong-card-grid{grid-template-columns:minmax(0,1fr);gap:11px}.cong-card-grid .cardhead h2{min-width:0}.cong-card-grid .card{padding:17px}}
+
+/* Grupo: fichas de integrantes con historial de visitas, compacto y accesible */
+.group-overview{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 16px}
+.group-overview>div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:15px;display:grid;gap:5px}
+.group-overview strong{font-size:25px;font-weight:650;line-height:1.1;font-variant-numeric:tabular-nums}
+.group-overview span{font-size:11px;color:var(--muted)}
+.group-actions{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.group-actions input{border:1px solid var(--line);border-radius:10px;min-width:0;flex:1;color:var(--ink);background:var(--card);font:inherit;font-size:16px;padding:12px}
+.group-actions .btn{white-space:nowrap}
+.group-persons{display:grid;gap:10px}
+.group-person{border:1px solid var(--line);border-radius:13px;background:var(--card);overflow:hidden}
+.group-person>summary{display:flex;align-items:center;gap:10px;padding:16px 17px;cursor:pointer;list-style:none}
+.group-person>summary::-webkit-details-marker{display:none}
+.group-person>summary:before{content:"›";font-size:24px;line-height:1;font-weight:350;color:var(--muted);margin-right:2px;transition:transform .15s ease}
+.group-person[open]>summary:before{transform:rotate(90deg)}
+.group-person-main{display:grid;gap:4px;min-width:0;flex:1}
+.group-person-main strong{font-size:14px;font-weight:600;overflow-wrap:anywhere}
+.group-person-main small{font-size:11px;color:var(--muted)}
+.group-visit-count{font-size:11px;color:var(--muted);white-space:nowrap}
+.group-person-body{border-top:1px solid var(--line);padding:13px 16px 16px}
+.group-person-actions{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:13px}
+.group-person-actions .btn{font-size:11px}
+.group-visit-history{display:grid;gap:9px}
+.group-visit{background:var(--soft);border-radius:10px;padding:12px}
+.group-visit-header{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.group-visit-header time{color:var(--ink);font-size:12px;font-weight:650}
+.group-visit-header>div{display:flex;gap:10px}
+.group-visit p{color:var(--ink);font-size:12px;line-height:1.65;margin:9px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.group-danger{color:var(--danger)}
+.group-privacy{font-size:11px;color:var(--muted);line-height:1.6;margin:16px 0 0}
+.group-shortcut{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;background:var(--card);border:1px solid var(--line);border-radius:12px;margin:0 0 14px}
+.group-shortcut>div{display:grid;gap:3px}
+.group-shortcut strong{font-weight:600;font-size:13px}
+.group-shortcut span{color:var(--muted);font-size:11px}
+@media(max-width:540px){
+ .group-overview>div{padding:12px}
+ .group-actions{gap:8px}
+ .group-actions .btn{font-size:11px;padding:11px}
+ .group-person>summary{padding:14px}
+ .group-person-body{padding:12px}
+ .group-person-actions .btn{font-size:11px}
+ .group-visit-header{align-items:flex-start}
+ .group-visit-header>div{gap:7px}
+ .group-shortcut{flex-wrap:wrap}
+}
