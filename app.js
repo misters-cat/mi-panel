@@ -149,6 +149,14 @@ function dashboardRows(items){
  return items.length?'<div class="dash-task-list">'+items.map(compactTask).join("")+'</div>':
  '<div class="dash-empty"><p>No hay pendientes para esta selección.</p><button class="btn small" id="add-list">Crear pendiente</button></div>';
 }
+function reminderTasks(){
+ const now=parseLocal(TODAY());
+ return sortSchedule(active().filter(t=>{
+  if(!t.due||Number(t.remindDays??1)<0)return false;
+  const days=Math.round((parseLocal(t.due).getTime()-now.getTime())/86400000);
+  return days<=Number(t.remindDays??1);
+ })).slice(0,8);
+}
 function homeFocusItems(){
  const all=active(),now=TODAY(),end=addDays(now,6);
  const late=sortSchedule(all.filter(t=>t.due&&t.due<now));
