@@ -71,3 +71,38 @@ test("Actualizar ahora llama al método sync sin desactivar la sincronización a
  assert.match(app,/await cloudClient\?\.sync\(\)/);
  assert.match(app,/cloudClient\?\.schedule\(\)/);
 });
+
+function member(name,id="p1",updatedAt="2026-11-10T13:00:00Z"){return{id,name,updatedAt,createdAt:"2026-11-09T12:00:00Z"}}
+function visit(topics,id="v1",personId="p1",updatedAt="2026-11-10T13:00:00Z"){return{id,personId,date:"2026-11-09",topics,updatedAt,createdAt:"2026-11-09T12:00:00Z"}}
+test("La sincronización reúne integrantes y visitas independientes de PC e iPhone",()=>{
+ const {merge}=engine();
+ const result=merge([
+  {groupPeople:[member("Integrante A")],groupVisits:[visit("Lectura general")]},
+  {groupPeople:[member("Integrante B","p2")],groupVisits:[visit("Segunda visita","v2","p2")]}
+ ],"2026-11-08T00:00:00Z");
+ assert.equal(result.snapshot.groupPeople.length,2);
+ assert.equal(result.snapshot.groupVisits.length,2);
+ assert(result.snapshot.groupVisits.some(x=>x.id==="v1"&&x.topics==="Lectura general"));
+ assert(result.snapshot.groupVisits.some(x=>x.id==="v2"&&x.personId==="p2"));
+});
+test("Dos temas editados en paralelo se preservan como versiones para revisión",()=>{
+ const {merge}=engine();
+ const result=merge([
+  {groupPeople:[member("Integrante A")],groupVisits:[visit("Tema desde iPhone","v1","p1","2026-11-10T14:00:00Z")]},
+  {groupPeople:[member("Integrante A")],groupVisits:[visit("Tema desde PC","v1","p1","2026-11-10T15:00:00Z")]}
+ ],"2026-11-10T13:00:00Z");
+ assert(result.snapshot.groupVisits.some(x=>x.id==="v1"&&x.topics==="Tema desde PC"));
+ assert(result.snapshot.groupVisits.some(x=>x.conflictOf==="v1"&&x.topics.includes("Tema desde iPhone")));
+ assert(result.conflicts>0);
+});
+test("Una visita borrada y su integrante no reaparecen al sincronizar",()=>{
+ const {merge}=engine();
+ const result=merge([
+  {groupPeople:[member("Integrante A","p1","2026-11-09T12:00:00Z")],groupVisits:[visit("Nota","v1","p1","2026-11-09T12:00:00Z")]},
+  {deletedGroupPeople:[{id:"p1",deletedAt:"2026-11-10T15:00:00Z"}],deletedGroupVisits:[{id:"v1",deletedAt:"2026-11-10T15:00:00Z"}]}
+ ],"2026-11-09T13:00:00Z");
+ assert.equal(result.snapshot.groupPeople.length,0);
+ assert.equal(result.snapshot.groupVisits.length,0);
+ assert.equal(result.snapshot.deletedGroupPeople.length,1);
+ assert.equal(result.snapshot.deletedGroupVisits.length,1);
+});
