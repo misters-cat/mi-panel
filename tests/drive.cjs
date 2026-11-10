@@ -61,3 +61,11 @@ test("La nueva sincronización no utiliza contraseña ni cifra la carga de Drive
  assert(code.includes("lastAutoSynced"));
  assert(code.includes("protectLocal(s)"));
 });
+
+test("Actualizar ahora llama al método sync sin desactivar la sincronización automática",()=>{
+ const app=fs.readFileSync("app.js","utf8");
+ assert.match(app,/id="drive-now"/);
+ assert.match(app,/btn\.id==="drive-now"/);
+ assert.match(app,/await cloudClient\?\.sync\(\)/);
+ assert.match(app,/cloudClient\?\.schedule\(\)/);
+});
