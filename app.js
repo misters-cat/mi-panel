@@ -41,7 +41,7 @@ function weekEnd(){return addDays(TODAY(),6)}
 function getState(){return {version:2,tasks:[],trash:[],categories:DEFAULT_CATEGORIES.map(c=>({...c})),deletedTasks:[],deletedCategories:[],settings:{theme:"auto",googleClientId:GOOGLE_CLIENT_ID,lastBackup:null,lastSynced:null,weeklyPicks:[]},updatedAt:new Date().toISOString()}}
 let state=getState(),view="semana",filter="Todas",search="",connected=false,token="",googleEvents=[],hiding=false,lastScroll=0,lastSavedId=null,lastDeletedId=null,agendaOffset=0,globalQuery="";
 let db,cloudClient=null,storageError="",lastRenderedDay=TODAY();
-let homeMode="focus",homeSelectedDay=TODAY(),agendaSelectedDay=TODAY();
+let homeMode="focus",homeSelectedDay=TODAY(),agendaSelectedDay=TODAY(),reviewExpanded=false,areasExpanded=false;
 function openDB(){return new Promise((ok,fail)=>{const r=indexedDB.open("mi-panel-db",1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains("kv"))r.result.createObjectStore("kv")};r.onsuccess=()=>ok(r.result);r.onerror=()=>fail(r.error)})}
 async function readState(){try{db=await openDB();const x=await new Promise((ok,fail)=>{const t=db.transaction("kv","readonly").objectStore("kv").get("state");t.onsuccess=()=>ok(t.result);t.onerror=()=>fail(t.error)});state=migrateState(x)}catch(err){storageError="No se pudo abrir el almacenamiento local. Tus cambios no se guardarán hasta resolverlo.";console.warn("IndexedDB no disponible",err);toast("⚠️ No se pudo abrir el almacenamiento local")}}
 async function save(options={}){
@@ -199,7 +199,7 @@ function homeDayStrip(){
  }).join("")+'</div>';
 }
 function homeAreaSummary(){
- return '<details class="home-disclosure"><summary>Mis áreas <span>Ver categorías</span></summary>'+
+ return '<details class="home-disclosure" data-home-section="areas" '+(areasExpanded?"open":"")+'> <summary>Mis áreas <span>Ver categorías</span></summary>'+
  '<div class="home-area-grid">'+state.categories.map(c=>
  '<button class="home-area" data-area="'+esc(c.id)+'"><span class="home-area-icon">'+categoryIcon(c)+'</span><span>'+esc(c.name)+'</span><b>'+active().filter(t=>catId(t)===c.id).length+'</b></button>'
  ).join("")+'</div></details>';
@@ -225,7 +225,7 @@ function week(){
  dashboardRows(focus.items)+(focus.count>5?'<button class="text-action" data-view="pendientes">Ver todos los pendientes</button>':"")+'</section>'+
  homeDayStrip()+
  (undated.length?'<div class="unscheduled-strip"><div><strong>Sin programar</strong><span>'+undated.length+' tareas sin fecha</span></div><button class="text-action" data-home-unscheduled>Organizar</button></div>':"")+
- '<details class="home-disclosure"><summary>Revisión semanal <span>Tres prioridades y avances</span></summary><div class="home-review">'+weeklyReview()+'</div></details>'+
+ '<details class="home-disclosure" data-home-section="review" '+(reviewExpanded?"open":"")+'><summary>Revisión semanal <span>Tres prioridades y avances</span></summary><div class="home-review">'+weeklyReview()+'</div></details>'+
  homeAreaSummary();
 }
 
@@ -534,7 +534,7 @@ async function pushCalendar(id){const t=state.tasks.find(x=>x.id===id);if(!t)ret
 function appendCalendarButton(t){const form=$("#task-form");if(!form||!t||t.subarea!=="Asignaciones")return;const b=document.createElement("button");b.type="button";b.className="btn";b.textContent=t.googleEventId?"✓ Ya está en Google Calendar":"Añadir a Google Calendar";b.disabled=!!t.googleEventId;b.onclick=()=>{close();pushCalendar(t.id)};form.querySelector(".actions").append(b)}
 function updateNetwork(){render()}
 let scrolling=false;
-document.addEventListener("click",async e=>{const btn=e.target.closest("button");if(!btn)return;
+document.addEventListener("click",async e=>{const summary=e.target.closest("details[data-home-section] > summary");if(summary){const details=summary.parentElement;if(details.dataset.homeSection==="review")reviewExpanded=!details.open;if(details.dataset.homeSection==="areas")areasExpanded=!details.open;return}const btn=e.target.closest("button");if(!btn)return;
  if(btn.matches('#task-form button[type="submit"], #category-form button[type="submit"]')){
   e.preventDefault();
   const form=btn.closest("form");
