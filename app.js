@@ -155,6 +155,7 @@ function homeFocusItems(){
  const today=sortSchedule(all.filter(t=>t.due===now));
  const upcoming=sortSchedule(all.filter(t=>t.due&&t.due>now&&t.due<=end));
  const picks=(state.settings.weeklyPicks||[]).map(id=>all.find(t=>t.id===id)).filter(Boolean);
+ const reminders=reminderTasks();
  let items,title;
  if(homeMode==="overdue"){items=late;title="Atrasados"}
  else if(homeMode==="today"){items=today;title="Para hoy"}
@@ -162,7 +163,7 @@ function homeFocusItems(){
  else if(homeMode==="day"){items=sortSchedule(all.filter(t=>t.due===homeSelectedDay));title="Para "+dayTitle(homeSelectedDay)}
  else{
   const seen=new Set();
-  items=[...late,...today,...picks,...upcoming].filter(t=>{
+  items=[...late,...today,...picks,...reminders,...upcoming].filter(t=>{
    if(seen.has(t.id))return false;seen.add(t.id);return true;
   });
   title="Qué hacer ahora";
