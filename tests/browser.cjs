@@ -186,6 +186,22 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert.match(await page.locator("#app").innerText(),/Meta con etapas de prueba/);
   console.log("OK: deshacer eliminación, recuperar meta y conservar avance tras recarga");
 
+
+  // Guardar sin conexión debe seguir funcionando en IndexedDB.
+  await context.setOffline(true);
+  await page.locator("#nav #add").click();
+  await page.locator("#title").fill("Pendiente escrito sin internet");
+  await page.locator("#area").selectOption("personal");
+  await page.locator("#task-form button[type=submit]").click();
+  await page.locator(".save-banner").waitFor({timeout:8000});
+  assert.match(await page.locator("#app").innerText(),/Pendiente escrito sin internet/);
+  await context.setOffline(false);
+  await page.reload({waitUntil:"domcontentloaded"});
+  await page.locator('button[data-view="pendientes"]').first().click();
+  assert.match(await page.locator("#app").innerText(),/Pendiente escrito sin internet/);
+  console.log("OK: guardado local offline sobrevive a reconexión y recarga");
+
+
   assert.equal(errors.length,0,"Excepciones JS: "+errors.join("; "));
   console.log("OK: sin errores JavaScript de ejecución");
   await context.close();

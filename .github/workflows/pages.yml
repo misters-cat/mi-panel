@@ -21,7 +21,7 @@ jobs:
       - name: Preparar GitHub Pages
         uses: actions/configure-pages@v5
       - name: Validar JavaScript
-        run: node --check app.js && node --check drive-sync.js && node --check sw.js && node --test tests/drive.cjs tests/smoke.cjs
+        run: node --check app.js && node --check drive-sync.js && node --check sw.js && node --test tests/drive.cjs tests/smoke.cjs tests/security.cjs
       - name: Subir sitio estático
         uses: actions/upload-pages-artifact@v3
         with:
