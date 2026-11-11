@@ -10,7 +10,7 @@ function setup(){
  const cut=source.lastIndexOf("readState().then(");
  assert(cut>0,"No se encontró punto de inicio de la PWA");
  const patched=source.slice(0,cut)+
-  'window.__test={getState,migrateState,saveForm,saveCategory,save,toggle,rollingDays,setDb:x=>{db=x},setState:x=>{state=x},actual:()=>state};\n})();';
+  'window.__test={getState,migrateState,saveForm,saveCategory,save,toggle,rollingDays,calendarEventPayload,setDb:x=>{db=x},setState:x=>{state=x},actual:()=>state};\n})();';
  const toast={textContent:"",classList:{add(){},remove(){}},value:""};
  const elements=new Map();
  const element=id=>{
@@ -107,4 +107,18 @@ test("La semana móvil atraviesa el cierre de mes correctamente",()=>{
  const {api}=setup();
  const days=Array.from(api.rollingDays("2026-11-28"));
  assert.equal(days[6],"2026-12-04");
+});
+
+test("Google Calendar crea eventos de todo el día, sin compartir notas personales",()=>{
+ const {api}=setup();
+ const payload=api.calendarEventPayload({title:"Consulta",due:"2026-11-20",time:"",notes:"Privado"});
+ assert.equal(payload.start.date,"2026-11-20");
+ assert.equal(payload.end.date,"2026-11-21");
+ assert.equal(payload.summary,"Mi Panel · Consulta");
+ assert(!JSON.stringify(payload).includes("Privado"));
+});
+test("Los compromisos congregacionales mantienen su prefijo al enviarlos a Google Calendar",()=>{
+ const {api}=setup();
+ const event=api.calendarEventPayload({title:"Discurso",due:"2026-11-20",subarea:"Asignaciones"});
+ assert.equal(event.summary,"Asignación · Discurso");
 });
