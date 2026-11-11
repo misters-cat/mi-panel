@@ -168,6 +168,47 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert.match(await page.locator(".agenda-week-grid").innerText(),/Meta con etapas de prueba/);
   console.log("OK: agenda semanal navegable con fechas y eventos");
 
+  // Crear desde Agenda conserva la fecha y permite un envío explícito a Google Calendar.
+  const chosenDate=await page.locator(".agenda-day.agenda-selected .agenda-day-select").getAttribute("data-agenda-day");
+  await page.locator("#agenda-new").click();
+  assert.equal(await page.locator("#due").inputValue(),chosenDate);
+  await page.locator("#title").fill("Compromiso de prueba Google Calendar");
+  await page.locator("#task-form button[type=submit]").click();
+  await page.waitForFunction(()=>document.querySelector(".agenda-selected-panel")?.textContent.includes("Compromiso de prueba Google Calendar"));
+  const calendarRow=page.locator(".timeline-item").filter({hasText:"Compromiso de prueba Google Calendar"});
+  await calendarRow.locator("[data-edit]").click();
+  assert.equal(await page.locator("#calendar-add").count(),1,"Una tarea normal con fecha debe poder enviarse a Google");
+
+  const calendarPosts=[];
+  const calendarUrl="https://www.googleapis.com/calendar/v3/**";
+  await page.route(calendarUrl,async route=>{
+   const req=route.request();
+   const headers={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"Authorization, Content-Type","Access-Control-Allow-Methods":"GET,POST,OPTIONS"};
+   if(req.method()==="OPTIONS")return route.fulfill({status:204,headers,body:""});
+   if(req.method()==="POST"){
+    calendarPosts.push(JSON.parse(req.postData()));
+    return route.fulfill({status:200,headers,contentType:"application/json",body:JSON.stringify({id:"calendar-test-event-1",status:"confirmed"})});
+   }
+   return route.fulfill({status:200,headers,contentType:"application/json",body:JSON.stringify({items:[]})});
+  });
+  await page.evaluate(()=>{
+   window.google={accounts:{oauth2:{initTokenClient:({callback})=>({
+    requestAccessToken:()=>callback({access_token:"mock-calendar-access",scope:"https://www.googleapis.com/auth/calendar.events"})
+   })}}};
+  });
+  page.once("dialog",d=>d.accept());
+  await page.locator("#calendar-add").click();
+  await page.waitForFunction(()=>document.querySelector("#toast")?.textContent.includes("Evento creado en Google Calendar"),{timeout:8000});
+  assert.equal(calendarPosts.length,1,"Se debe crear exactamente un evento en Google Calendar");
+  assert.equal(calendarPosts[0].summary,"Mi Panel · Compromiso de prueba Google Calendar");
+  assert.equal(calendarPosts[0].start.date,chosenDate);
+  await calendarRow.locator("[data-edit]").click();
+  assert.equal(await page.locator("#calendar-add").isDisabled(),true,"No debe crear duplicados desde un registro ya vinculado");
+  await page.locator("#modal [data-close]").first().click();
+  await page.unroute(calendarUrl);
+  await page.reload({waitUntil:"domcontentloaded"});
+  console.log("OK: Agenda preselecciona día, guarda local y crea evento Google solo con autorización");
+
   await page.locator('button[data-view="buscar"]').first().click();
   await page.locator("#global-search").fill("meta con etapas");
   assert.match(await page.locator("#app").innerText(),/Meta con etapas de prueba/);
