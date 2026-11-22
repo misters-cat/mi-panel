@@ -367,3 +367,6 @@ h2{font-weight:650;font-size:17px}
  .group-visit-header>div{gap:7px}
  .group-shortcut{flex-wrap:wrap}
 }
+
+/* Inicio local-first: estado visible mientras IndexedDB carga, sin depender de fuentes externas. */
+.boot-status{margin:24px 0;background:var(--card);color:var(--muted);border:1px solid var(--line);border-radius:14px;padding:22px 20px;font-size:13px;min-height:84px}
