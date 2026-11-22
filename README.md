@@ -162,3 +162,13 @@ Sin Supabase, no se envía contenido a GitHub y no se utiliza Google Calendar pa
 
 ## v1.6.1 · Compromisos en Agenda y Google Calendar
 Al crear un compromiso desde Agenda, se completa automáticamente el día seleccionado y, tras guardar, queda visible en la Agenda local. Los registros con fecha incluyen **Añadir a Google Calendar**; la creación externa es opcional y requiere autorización y confirmación. El botón aparece al editar cualquier pendiente con fecha y tras guardar uno nuevo. Si Google Calendar aún no está autorizado, Mi Panel inicia OAuth desde el clic y continúa tras la autorización. La API de Google Calendar debe estar habilitada en el mismo proyecto de Google Cloud y con el usuario de prueba autorizado; un error 403 muestra un mensaje específico. El evento lleva título, fecha y, si corresponde, hora; las notas personales no se envían. La conexión a Google Drive es independiente y no reemplaza los permisos de Calendar.
+
+
+## v1.6.2 · Arranque local-first (22 de noviembre de 2026)
+
+- El *service worker* guarda una copia completa y coordinada del HTML, CSS, JavaScript, manifiesto e icono. Cuando la PWA está instalada y esos recursos ya se han descargado, responde **primero desde el dispositivo**, sin bloquear la apertura mientras espera Internet.
+- La comprobación de actualizaciones del service worker se hace separadamente tras mostrar los datos locales. Mi Panel puede abrir sin conexión; Google Calendar y Google Drive solo necesitan Internet al utilizar sus funciones.
+- Fuentes web y carga anticipada de Google OAuth dejan de bloquear o competir con el arranque. Los recursos locales tienen la misma versión de caché; el estado de apertura aparece inmediatamente.
+- Los registros personales continúan en **IndexedDB**, separados de la caché de archivos de la PWA. Las actualizaciones borran solamente cachés antiguas bajo el prefijo `mi-panel-`, **nunca IndexedDB ni los respaldos locales**.
+- Para instalar o recibir una versión nueva por primera vez es necesaria una visita con Internet. **No borres los datos de Safari ni desinstales la PWA** para solucionar problemas de carga: esas acciones podrían eliminar los registros locales. Conserva tus respaldos cifrados.
+- La suite incorpora pruebas de arranque sin red, consistencia de recursos y no dependencia de Google. La verificación de pull requests se ejecuta antes de publicar en `main`.
