@@ -185,3 +185,9 @@ Al crear un compromiso desde Agenda, se completa automáticamente el día selecc
 - Ajuste de calendario mensual/anual: 31 de enero pasa a 28/29 de febrero, y la siguiente repetición vuelve al día 31 de marzo. El 29 de febrero conserva su día de anclaje para el próximo año bisiesto.
 - Cada nueva instancia de una tarea repetida tiene un ID determinista derivado del registro de origen y fecha prevista; dos dispositivos que completen la misma instancia crean el **mismo ID**, compatible con la fusión por ID.
 - Si falla IndexedDB, la acción de completar/retomar y la instancia creada se revierten en memoria. No se modifica el formato de cifrado ni se borra información anterior.
+
+
+## v1.9.0 · Diseño para iPad (23 de noviembre de 2026)
+- **Mi día** se adapta a iPad horizontal y pantallas anchas con dos columnas: captura rápida, prioridades y pendientes a la izquierda; próximos días y áreas a la derecha.
+- La agenda dispone sus siete días sin desplazamiento horizontal en ventanas de al menos 900 px; Congregación y Grupo aprovechan mejor las pantallas grandes.
+- iPhone sigue usando una sola columna. Los cambios son de presentación, sin modificación de la estructura de IndexedDB ni de los archivos de Drive.
