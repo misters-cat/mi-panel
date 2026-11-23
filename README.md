@@ -179,3 +179,9 @@ Al crear un compromiso desde Agenda, se completa automáticamente el día selecc
 - La sugerencia local reconoce horarios 24 horas, como «miércoles 19:00», y deja la hora editable.
 - Los pendientes con fecha en Mi día muestran «+1 día». Pide confirmación, actualiza el mismo registro en IndexedDB y revierte la memoria si falla la escritura.
 - No cambia el esquema de IndexedDB ni el formato cifrado de Google Drive. Se mantienen todos los registros y respaldos existentes.
+
+
+## v1.8.0 · Recurrencias confiables (23 de noviembre de 2026)
+- Ajuste de calendario mensual/anual: 31 de enero pasa a 28/29 de febrero, y la siguiente repetición vuelve al día 31 de marzo. El 29 de febrero conserva su día de anclaje para el próximo año bisiesto.
+- Cada nueva instancia de una tarea repetida tiene un ID determinista derivado del registro de origen y fecha prevista; dos dispositivos que completen la misma instancia crean el **mismo ID**, compatible con la fusión por ID.
+- Si falla IndexedDB, la acción de completar/retomar y la instancia creada se revierten en memoria. No se modifica el formato de cifrado ni se borra información anterior.
