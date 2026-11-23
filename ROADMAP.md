@@ -38,7 +38,7 @@ Estado base: versión 1.6.2 en `main`. Última actualización del plan: 23-11-20
 - Avisos dentro de la app y prioridades semanales; sin prometer push con la app cerrada.
 - Filtros rápidos por área, fecha, completado y en espera.
 **Pruebas obligatorias**: cruces de mes/año, sincronización concurrente, modo avión.
-**Despliegue**: rama `release/1.8.0-recurrencias-20261123`; primera entrega: calendario mensual/anual anclado e ID estable por recurrencia.
+**Despliegue**: integrada a `main` mediante PR #24 (23-11-2026).
 
 ## 1.9.0 · Organización e iPad
 - Vista de Congregación con cuatro funciones y seguimiento, sin alterar categorías o asignaciones existentes.
@@ -46,7 +46,7 @@ Estado base: versión 1.6.2 en `main`. Última actualización del plan: 23-11-20
 - Grandes Metas: avance por etapas y próximos pasos.
 - Diseño adaptable de 2 columnas en iPad y escritorio; iPhone mantiene navegación compacta.
 **Pruebas obligatorias**: integridad de visitas y eliminaciones, cambios en iPhone y PC, accesibilidad.
-**Despliegue**: rama `release/1.9.0-organizacion-ipad`.
+**Despliegue**: rama `release/1.9.0-ipad-organizacion-20261123`; primera entrega centrada en diseño adaptable y privacidad sin migración de datos.
 
 ## 2.0.0 · Calidad y lanzamiento
 - Suite de regresión para todas las funciones anteriores.
