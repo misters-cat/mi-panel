@@ -216,3 +216,15 @@ test("Si falla IndexedDB al completar, ninguna copia queda creada en memoria",as
  assert.equal(api.actual().tasks.length,1);
  assert.equal(api.actual().tasks[0].status,"Pendiente");
 });
+
+test("La instancia mensual conserva fecha de creación estable entre dispositivos",async()=>{
+ const {api,getSaved}=setup();
+ const seed=api.getState();
+ seed.tasks=[{id:"t03",title:"Revisión",areaId:"personal",type:"tarea",status:"Pendiente",
+  due:"2026-01-31",repeat:"monthly",createdAt:"2026-01-01T08:00:00Z",updatedAt:"2026-01-01T08:00:00Z"}];
+ api.setState(seed);
+ await api.toggle("t03");
+ const child=getSaved().tasks.find(t=>t.originId==="t03");
+ assert.equal(child.createdAt,"2026-01-01T08:00:00Z");
+ assert.equal(child.updatedAt,"2026-01-01T08:00:00Z");
+});
