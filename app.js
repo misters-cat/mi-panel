@@ -537,7 +537,7 @@ if(/cada mes|mensual|todos los meses/.test(t))repeat="monthly";
 if(/cada a[ñn]o|anual/.test(t))repeat="yearly";
 let due="";if(/\bma[ñn]ana\b/.test(t))due=addDays(TODAY(),1);else if(/\bhoy\b/.test(t))due=TODAY();
 const names=["domingo","lunes","martes","miércoles","miercoles","jueves","viernes","sábado","sabado"];if(!due){for(let i=0;i<names.length;i++)if(t.includes(names[i])){const d=new Date();const delta=(((i-d.getDay())+7)%7)||7;due=addDays(TODAY(),delta);break}}
-const ms=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];const re=t.match(/\b(\d{1,2})\s+de\s+([a-záéíóú]+)(?:\s+de\s+(\d{4}))?/);if(re){const mi=ms.indexOf(re[2]);if(mi>=0){let y=re[3]?Number(re[3]):new Date().getFullYear();const date=iso(new Date(y,mi,Number(re[1])));if(!re[3]&&date<TODAY())y++;due=iso(new Date(y,mi,Number(re[1])))}}const matchTime=t.match(/\\b([01]?\\d|2[0-3]):([0-5]\\d)\\b/);
+const ms=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];const re=t.match(/\b(\d{1,2})\s+de\s+([a-záéíóú]+)(?:\s+de\s+(\d{4}))?/);if(re){const mi=ms.indexOf(re[2]);if(mi>=0){let y=re[3]?Number(re[3]):new Date().getFullYear();const date=iso(new Date(y,mi,Number(re[1])));if(!re[3]&&date<TODAY())y++;due=iso(new Date(y,mi,Number(re[1])))}}const matchTime=t.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
 const time=matchTime?String(Number(matchTime[1])).padStart(2,"0")+":"+matchTime[2]:"";
 return {area,subarea:sub,type,due,repeat,time}}
 function openQuickCapture(text){
