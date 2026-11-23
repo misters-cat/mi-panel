@@ -393,14 +393,14 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   const tabletPage=await tabletContext.newPage();
   await tabletPage.goto("http://127.0.0.1:"+port+"/",{waitUntil:"domcontentloaded"});
   await tabletPage.locator(".tablet-layout").waitFor();
-  const wideColumns=await tabletPage.locator(".tablet-layout").evaluate(el=>getComputedStyle(el).gridTemplateColumns.trim().split(/\\s+/).length);
+  const wideColumns=await tabletPage.locator(".tablet-layout").evaluate(el=>getComputedStyle(el).gridTemplateColumns.trim().split(/\s+/).length);
   assert.equal(wideColumns,2,"Mi día debe mostrar dos columnas en pantalla ancha");
   await tabletPage.locator('button[data-view="agenda"]').first().click();
-  const agendaColumns=await tabletPage.locator(".agenda-week-grid").evaluate(el=>getComputedStyle(el).gridTemplateColumns.trim().split(/\\s+/).length);
+  const agendaColumns=await tabletPage.locator(".agenda-week-grid").evaluate(el=>getComputedStyle(el).gridTemplateColumns.trim().split(/\s+/).length);
   assert.equal(agendaColumns,7,"La agenda debe mostrar siete días en pantalla ancha");
   await tabletPage.setViewportSize({width:390,height:844});
   await tabletPage.locator('button[data-view="semana"]').first().click();
-  const smallColumns=await tabletPage.locator(".tablet-layout").evaluate(el=>getComputedStyle(el).gridTemplateColumns.trim().split(/\\s+/).length);
+  const smallColumns=await tabletPage.locator(".tablet-layout").evaluate(el=>getComputedStyle(el).gridTemplateColumns.trim().split(/\s+/).length);
   assert.equal(smallColumns,1,"El inicio móvil debe conservar una columna");
   await tabletContext.close();
   console.log("OK: diseño iPad dos columnas, agenda siete columnas y móvil una columna");
