@@ -10,7 +10,7 @@ function setup(){
  const cut=source.lastIndexOf("readState().then(");
  assert(cut>0,"No se encontró punto de inicio de la PWA");
  const patched=source.slice(0,cut)+
-  'window.__test={getState,migrateState,saveForm,saveCategory,save,toggle,rollingDays,calendarEventPayload,setDb:x=>{db=x},setState:x=>{state=x},actual:()=>state};\n})();';
+  'window.__test={getState,migrateState,saveForm,saveCategory,save,toggle,rollingDays,calendarEventPayload,readState,persistReplacement,setDb:x=>{db=x;storageReady=true},setStorageReady:x=>{storageReady=x},setState:x=>{state=x},actual:()=>state};\n})();';
  const toast={textContent:"",classList:{add(){},remove(){}},value:""};
  const elements=new Map();
  const element=id=>{
@@ -121,4 +121,32 @@ test("Los compromisos congregacionales mantienen su prefijo al enviarlos a Googl
  const {api}=setup();
  const event=api.calendarEventPayload({title:"Discurso",due:"2026-11-20",subarea:"Asignaciones"});
  assert.equal(event.summary,"Asignación · Discurso");
+});
+
+test("Lectura local fallida bloquea guardados aunque exista un manejador IndexedDB",async()=>{
+ const {api,getSaved}=setup();
+ api.setStorageReady(false);
+ await assert.rejects(api.save(),/lectura local verificada/);
+ assert.equal(getSaved(),null);
+});
+test("Un error de lectura activa modo protegido y nunca escribe un estado vacío",async()=>{
+ const {api,getSaved}=setup();
+ const previous=api.actual();
+ const ok=await api.readState(); // indexedDB.open no disponible en este entorno controlado
+ assert.equal(ok,false);
+ await assert.rejects(api.save(),/lectura local verificada/);
+ assert.equal(api.actual(),previous);
+ assert.equal(getSaved(),null);
+});
+test("La restauración revierte la memoria cuando falla la transacción",async()=>{
+ const {api,db,getSaved}=setup();
+ const before=api.getState();
+ before.tasks=[{id:"original",title:"Registro anterior",areaId:"personal",status:"Pendiente"}];
+ api.setState(before);
+ await api.save({skipSync:true});
+ const oldPersisted=getSaved();
+ db.fail=true;
+ await assert.rejects(api.persistReplacement({tasks:[{id:"importado",title:"Nuevo"}],settings:{}}));
+ assert.equal(api.actual().tasks[0].id,"original");
+ assert.equal(getSaved().tasks[0].id,oldPersisted.tasks[0].id);
 });
