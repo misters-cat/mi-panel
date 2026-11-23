@@ -46,7 +46,7 @@ Estado base: versión 1.6.2 en `main`. Última actualización del plan: 23-11-20
 - Grandes Metas: avance por etapas y próximos pasos.
 - Diseño adaptable de 2 columnas en iPad y escritorio; iPhone mantiene navegación compacta.
 **Pruebas obligatorias**: integridad de visitas y eliminaciones, cambios en iPhone y PC, accesibilidad.
-**Despliegue**: rama `release/1.9.0-ipad-organizacion-20261123`; primera entrega centrada en diseño adaptable y privacidad sin migración de datos.
+**Despliegue**: integrada a `main` mediante PR #25 (23-11-2026).
 
 ## 2.0.0 · Calidad y lanzamiento
 - Suite de regresión para todas las funciones anteriores.
@@ -54,7 +54,7 @@ Estado base: versión 1.6.2 en `main`. Última actualización del plan: 23-11-20
 - Auditoría de OAuth, permisos mínimos, cifrado y sincronización multipestaña/multidispositivo.
 - Guía de usuario para respaldo y restauración.
 - Publicación de producción solo tras verificación de datos reales por el usuario en ambos dispositivos.
-**Despliegue**: rama `release/2.0.0-consolidacion`.
+**Despliegue**: NO PUBLICADA. Requiere pruebas reales en iPhone/iPad/PC y respaldo previo; seguimiento en [issue #26](https://github.com/misters-cat/mi-panel/issues/26). Ver [matriz de validación](docs/VERIFICACION_2_0.md).
 
 ## Puertas de lanzamiento de cada etapa
 1. Crear nueva rama desde `main` estable; no borrar ramas históricas.
