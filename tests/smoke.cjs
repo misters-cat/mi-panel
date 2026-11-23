@@ -10,7 +10,7 @@ function setup(){
  const cut=source.lastIndexOf("readState().then(");
  assert(cut>0,"No se encontró punto de inicio de la PWA");
  const patched=source.slice(0,cut)+
-  'window.__test={getState,migrateState,saveForm,saveCategory,save,toggle,rollingDays,calendarEventPayload,readState,persistReplacement,setDb:x=>{db=x;storageReady=true},setStorageReady:x=>{storageReady=x},setState:x=>{state=x},actual:()=>state};\n})();';
+  'window.__test={getState,migrateState,saveForm,saveCategory,save,toggle,rollingDays,calendarEventPayload,readState,persistReplacement,suggest,postponeTask,setDb:x=>{db=x;storageReady=true},setStorageReady:x=>{storageReady=x},setState:x=>{state=x},actual:()=>state};\n})();';
  const toast={textContent:"",classList:{add(){},remove(){}},value:""};
  const elements=new Map();
  const element=id=>{
@@ -149,4 +149,31 @@ test("La restauración revierte la memoria cuando falla la transacción",async()
  await assert.rejects(api.persistReplacement({tasks:[{id:"importado",title:"Nuevo"}],settings:{}}));
  assert.equal(api.actual().tasks[0].id,"original");
  assert.equal(getSaved().tasks[0].id,oldPersisted.tasks[0].id);
+});
+
+test("La captura rápida interpreta fecha y hora sin enviar nada a Google",()=>{
+ const {api}=setup();
+ const p=api.suggest("Reunión miércoles 19:00");
+ assert.equal(p.area,"Congregación");
+ assert.equal(p.time,"19:00");
+ assert.match(p.due,/^\d{4}-\d{2}-\d{2}$/);
+});
+test("Aplazar modifica solo la fecha del pendiente original y persiste local",async()=>{
+ const {api,getSaved}=setup();
+ const before=api.getState();
+ before.tasks=[{id:"aplazable",title:"Visita",areaId:"personal",type:"tarea",due:"2026-11-05",status:"Pendiente"}];
+ api.setState(before);
+ await api.postponeTask("aplazable");
+ assert.equal(getSaved().tasks.length,1);
+ assert(getSaved().tasks[0].due>"2026-11-05");
+ assert.equal(getSaved().tasks[0].id,"aplazable");
+});
+test("Aplazamiento fallido no altera en memoria la fecha original",async()=>{
+ const {api,db}=setup();
+ const before=api.getState();
+ before.tasks=[{id:"aplazable",title:"Visita",areaId:"personal",type:"tarea",due:"2026-11-05",status:"Pendiente"}];
+ api.setState(before);
+ db.fail=true;
+ await api.postponeTask("aplazable");
+ assert.equal(api.actual().tasks[0].due,"2026-11-05");
 });

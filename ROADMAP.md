@@ -21,7 +21,7 @@ Estado base: versión 1.6.2 en `main`. Última actualización del plan: 23-11-20
 - Confirmar consistencia de recursos offline; mantener el acceso a Calendar/Drive opcional.
 
 **Pruebas obligatorias**: fallo de IndexedDB, persistencia normal y tras recarga, restauración fallida con rollback, funcionalidad offline y seguridad cifrado Drive.
-**Estado**: en desarrollo en `release/1.6.3-seguridad-local-20261123`.
+**Estado**: integrada en `main` mediante PR #22 (23-11-2026).
 
 ## 1.7.0 · Mi día y captura rápida
 - Agrupar «Atrasados», «Hoy» y «Próximos siete días»; mostrar hasta tres prioridades.
@@ -30,7 +30,7 @@ Estado base: versión 1.6.2 en `main`. Última actualización del plan: 23-11-20
 - Mejorar rendimiento de listas; no consultar Calendar durante la primera pintura.
 - Accesibilidad de navegación por teclado y etiquetas.
 **Pruebas obligatorias**: crear, completar, aplazar, fecha y hora local sin duplicados; respuesta en iPhone simulada.
-**Despliegue**: rama `release/1.7.0-productividad`; solo después de cerrar 1.6.3.
+**Despliegue**: rama `release/1.7.0-captura-rapida-20261123`; primera entrega de captura rápida y aplazamiento, pruebas antes de integrar.
 
 ## 1.8.0 · Rutinas y recordatorios
 - Recurrencias semanal, mensual y anual idempotentes; evitar tareas duplicadas al abrir en varios dispositivos.

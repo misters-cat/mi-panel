@@ -1,12 +1,12 @@
-/* Mi Panel v1.6.3 — inicio local-first. Solo actualiza cachés de la PWA; NUNCA IndexedDB. */
+/* Mi Panel v1.7.0 — inicio local-first. Solo actualiza cachés de la PWA; NUNCA IndexedDB. */
 "use strict";
-const CACHE_NAME="mi-panel-v22-safe-local";
+const CACHE_NAME="mi-panel-v23-quick-capture";
 const PRECACHE=[
  "./",
  "./index.html",
- "./styles.css?v=20261123-safe163",
- "./app.js?v=20261123-safe163",
- "./drive-sync.js?v=20261123-safe163",
+ "./styles.css?v=20261123-fast170",
+ "./app.js?v=20261123-fast170",
+ "./drive-sync.js?v=20261123-fast170",
  "./manifest.webmanifest",
  "./icon.svg"
 ];

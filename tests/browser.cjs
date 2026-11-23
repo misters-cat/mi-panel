@@ -25,6 +25,14 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   const page=await context.newPage();
   const errors=[];page.on("pageerror",e=>errors.push(e.message));
   await page.goto("http://127.0.0.1:"+port+"/",{waitUntil:"domcontentloaded"});
+  await page.locator("#quick-capture-input").fill("Preparar reunión miércoles 19:00");
+  await page.locator("#quick-capture button[type=submit]").click();
+  assert.equal(await page.locator("#title").inputValue(),"Preparar reunión miércoles 19:00");
+  assert.equal(await page.locator("#task-form input[name=time]").inputValue(),"19:00");
+  assert.equal(await page.locator("#area").inputValue(),"congregacion");
+  await page.locator("#modal [data-close]").first().click();
+  console.log("OK: captura rápida propone categoría y hora, sin guardar automáticamente");
+
   await page.locator("#nav #add").click();
   await page.locator("#title").fill("Organizar documentos para mi meta");
   await page.locator("#area").selectOption("grandes-metas");
@@ -82,7 +90,7 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert.match(await page.locator("#app").innerText(),/Revisar el trabajo mañana/);
   console.log("OK: respetar elección de categoría manual");
 
-  assert.equal(await page.locator("#release-chip").innerText(),"v1.6.3");
+  assert.equal(await page.locator("#release-chip").innerText(),"v1.7.0");
   // La sincronización debe estar accesible desde la pantalla principal, incluso desconectada.
   await page.locator('button[data-view="semana"]').first().click();
   assert.equal(await page.locator(".quick-sync").count(),1);
@@ -110,7 +118,7 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert.match(await page.locator("#app").innerText(),/cifrado AES-GCM/);
   await page.locator("#release-history").waitFor({state:"attached"});
   assert.match(await page.locator("#app").innerText(),/Historial de versiones/);
-  assert.match(await page.locator(".release-latest").innerText(),/1\.6\.3/);
+  assert.match(await page.locator(".release-latest").innerText(),/1\.7\.0/);
   await page.locator("#release-history summary").click();
   assert.match(await page.locator("#release-history").innerText(),/1\.2\.2/);
   assert.match(await page.locator("#release-history").innerText(),/0\.1/);
