@@ -10,7 +10,7 @@ function setup(){
  const cut=source.lastIndexOf("readState().then(");
  assert(cut>0,"No se encontró punto de inicio de la PWA");
  const patched=source.slice(0,cut)+
-  'window.__test={getState,migrateState,saveForm,saveCategory,save,toggle,rollingDays,calendarEventPayload,readState,persistReplacement,suggest,postponeTask,setDb:x=>{db=x;storageReady=true},setStorageReady:x=>{storageReady=x},setState:x=>{state=x},actual:()=>state};\n})();';
+  'window.__test={getState,migrateState,saveForm,saveCategory,save,toggle,rollingDays,calendarEventPayload,readState,persistReplacement,suggest,postponeTask,nextDue,recurringId,setDb:x=>{db=x;storageReady=true},setStorageReady:x=>{storageReady=x},setState:x=>{state=x},actual:()=>state};\n})();';
  const toast={textContent:"",classList:{add(){},remove(){}},value:""};
  const elements=new Map();
  const element=id=>{
@@ -176,4 +176,55 @@ test("Aplazamiento fallido no altera en memoria la fecha original",async()=>{
  db.fail=true;
  await api.postponeTask("aplazable");
  assert.equal(api.actual().tasks[0].due,"2026-11-05");
+});
+
+test("Mensual anclado al día 31 respeta fin de mes, sin saltar meses",()=>{
+ const {api}=setup();
+ assert.equal(api.nextDue("2026-01-31","monthly"),"2026-02-28");
+ assert.equal(api.nextDue("2026-02-28","monthly",31),"2026-03-31");
+ assert.equal(api.nextDue("2028-01-31","monthly"),"2028-02-29");
+});
+test("Anual del 29 de febrero mantiene el día de aniversario original",()=>{
+ const {api}=setup();
+ assert.equal(api.nextDue("2028-02-29","yearly",29),"2029-02-28");
+ assert.equal(api.nextDue("2031-02-28","yearly",29),"2032-02-29");
+});
+test("Completar una tarea recurrente crea una sola copia de ID estable",async()=>{
+ const {api,getSaved}=setup();
+ const seed=api.getState();
+ seed.tasks=[{id:"t01",title:"Revisión periódica",areaId:"personal",type:"tarea",due:"2026-01-31",repeat:"monthly",status:"Pendiente"}];
+ api.setState(seed);
+ await api.toggle("t01");
+ assert.equal(getSaved().tasks.length,2);
+ const child=getSaved().tasks.find(t=>t.id!=="t01");
+ assert.equal(child.id,api.recurringId("t01","2026-02-28"));
+ assert.equal(child.repeatAnchorDay,31);
+ await api.toggle("t01");
+ await api.toggle("t01");
+ assert.equal(getSaved().tasks.length,2);
+ await api.toggle(child.id);
+ const march=getSaved().tasks.find(t=>t.originId===child.id);
+ assert.equal(march.due,"2026-03-31");
+});
+test("Si falla IndexedDB al completar, ninguna copia queda creada en memoria",async()=>{
+ const {api,db}=setup();
+ const seed=api.getState();
+ seed.tasks=[{id:"t02",title:"Rutina semanal",areaId:"personal",type:"tarea",due:"2026-11-22",repeat:"weekly",status:"Pendiente"}];
+ api.setState(seed);
+ db.fail=true;
+ await api.toggle("t02");
+ assert.equal(api.actual().tasks.length,1);
+ assert.equal(api.actual().tasks[0].status,"Pendiente");
+});
+
+test("La instancia mensual conserva fecha de creación estable entre dispositivos",async()=>{
+ const {api,getSaved}=setup();
+ const seed=api.getState();
+ seed.tasks=[{id:"t03",title:"Revisión",areaId:"personal",type:"tarea",status:"Pendiente",
+  due:"2026-01-31",repeat:"monthly",createdAt:"2026-01-01T08:00:00Z",updatedAt:"2026-01-01T08:00:00Z"}];
+ api.setState(seed);
+ await api.toggle("t03");
+ const child=getSaved().tasks.find(t=>t.originId==="t03");
+ assert.equal(child.createdAt,"2026-01-01T08:00:00Z");
+ assert.equal(child.updatedAt,"2026-01-01T08:00:00Z");
 });

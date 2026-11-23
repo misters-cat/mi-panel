@@ -30,7 +30,7 @@ Estado base: versión 1.6.2 en `main`. Última actualización del plan: 23-11-20
 - Mejorar rendimiento de listas; no consultar Calendar durante la primera pintura.
 - Accesibilidad de navegación por teclado y etiquetas.
 **Pruebas obligatorias**: crear, completar, aplazar, fecha y hora local sin duplicados; respuesta en iPhone simulada.
-**Despliegue**: rama `release/1.7.0-captura-rapida-20261123`; primera entrega de captura rápida y aplazamiento, pruebas antes de integrar.
+**Despliegue**: integrada a `main` mediante PR #23 (23-11-2026).
 
 ## 1.8.0 · Rutinas y recordatorios
 - Recurrencias semanal, mensual y anual idempotentes; evitar tareas duplicadas al abrir en varios dispositivos.
@@ -38,7 +38,7 @@ Estado base: versión 1.6.2 en `main`. Última actualización del plan: 23-11-20
 - Avisos dentro de la app y prioridades semanales; sin prometer push con la app cerrada.
 - Filtros rápidos por área, fecha, completado y en espera.
 **Pruebas obligatorias**: cruces de mes/año, sincronización concurrente, modo avión.
-**Despliegue**: rama `release/1.8.0-rutinas`.
+**Despliegue**: rama `release/1.8.0-recurrencias-20261123`; primera entrega: calendario mensual/anual anclado e ID estable por recurrencia.
 
 ## 1.9.0 · Organización e iPad
 - Vista de Congregación con cuatro funciones y seguimiento, sin alterar categorías o asignaciones existentes.
