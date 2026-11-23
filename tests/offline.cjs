@@ -49,13 +49,13 @@ function serviceWorkerFixture(){
 test("la PWA se instala con todos los recursos necesarios, sin borrar IndexedDB",async()=>{
  const worker=serviceWorkerFixture();
  await worker.fire("install");
- const cache=await worker.caches.open("mi-panel-v24-recurrence");
- const paths=["index.html","styles.css?v=20261123-routines180","app.js?v=20261123-routines180","drive-sync.js?v=20261123-routines180","manifest.webmanifest","icon.svg"];
+ const cache=await worker.caches.open("mi-panel-v25-ipad-responsive");
+ const paths=["index.html","styles.css?v=20261123-ipad190","app.js?v=20261123-ipad190","drive-sync.js?v=20261123-ipad190","manifest.webmanifest","icon.svg"];
  for(const path of paths)assert(await cache.match(new URL(path,SCOPE).href),"Falta en caché: "+path);
  const old=await worker.caches.open("mi-panel-v20-calendar-events");
  await old.put(new URL("obsoleto.css",SCOPE).href,response("viejo"));
  await worker.fire("activate");
- assert.deepEqual(await worker.caches.keys(),["mi-panel-v24-recurrence"]);
+ assert.deepEqual(await worker.caches.keys(),["mi-panel-v25-ipad-responsive"]);
  assert.doesNotMatch(fs.readFileSync("sw.js","utf8"),/indexedDB\.deleteDatabase|\.clear\(\)/);
 });
 
@@ -64,8 +64,8 @@ test("el inicio y JavaScript responden desde caché sin consultar Internet",asyn
  await worker.fire("install");
  const home=await worker.fire("fetch",{method:"GET",mode:"navigate",url:SCOPE+"?actualizar=123"});
  assert.equal(await home.text(),"guardado:./index.html");
- const script=await worker.fire("fetch",{method:"GET",mode:"same-origin",url:SCOPE+"app.js?v=20261123-routines180"});
- assert.equal(await script.text(),"guardado:./app.js?v=20261123-routines180");
+ const script=await worker.fire("fetch",{method:"GET",mode:"same-origin",url:SCOPE+"app.js?v=20261123-ipad190"});
+ assert.equal(await script.text(),"guardado:./app.js?v=20261123-ipad190");
  assert.equal(worker.getNetworkCalls(),0);
 });
 
@@ -84,7 +84,7 @@ test("HTML y precarga apuntan a las mismas versiones de archivos",()=>{
  const html=fs.readFileSync("index.html","utf8");
  const sw=fs.readFileSync("sw.js","utf8");
  for(const path of ["styles.css","app.js","drive-sync.js"]){
-  const ref=path+"?v=20261123-routines180";
+  const ref=path+"?v=20261123-ipad190";
   assert(html.includes(ref),"Falta referencia HTML: "+ref);
   assert(sw.includes(ref),"Falta precarga: "+ref);
  }

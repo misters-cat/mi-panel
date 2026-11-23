@@ -379,3 +379,24 @@ h2{font-weight:650;font-size:17px}
 .quick-capture-row button{flex-shrink:0}
 .quick-capture p{margin:0;color:var(--muted);font-size:10px}
 @media(max-width:375px){.quick-capture-row{flex-wrap:wrap}.quick-capture-row button{width:100%}}
+
+/* 1.9.0: organización adaptable para iPad, sin cambios en almacenamiento. */
+.tablet-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:0}
+.tablet-main,.tablet-side{min-width:0}
+@media(min-width:900px){
+ .shell{max-width:1200px}
+ .tablet-layout{grid-template-columns:minmax(0,1.48fr) minmax(320px,1fr);gap:22px;align-items:start}
+ .tablet-main .focus-panel{min-height:280px}
+ .tablet-side{border:1px solid var(--line);background:var(--card);padding:18px;border-radius:14px}
+ .tablet-side .home-days{gap:4px}
+ .tablet-side .home-day{padding:10px 1px}
+ .tablet-side .home-day b{font-size:16px}
+ .tablet-side .home-area-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .agenda-week-grid{grid-template-columns:repeat(7,minmax(0,1fr));overflow:visible;gap:7px}
+ .agenda-day{min-width:0;min-height:150px}
+ .cong-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .group-persons{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+}
+@media(min-width:1180px){
+ .cong-card-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
