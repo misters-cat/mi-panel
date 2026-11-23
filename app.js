@@ -670,7 +670,7 @@ async function toggle(id){
    const child={...task,id:recurringId(task.id,due),due,
     repeatAnchorDay:anchor,originId:task.id,
     status:assignment?"Recibida":"Pendiente",completedAt:null,
-    createdAt:stamp,updatedAt:stamp,googleEventId:null};
+    createdAt:task.createdAt||"2025-01-01T00:00:00Z",updatedAt:task.updatedAt||task.createdAt||"2025-01-01T00:00:00Z",googleEventId:null};
    next=[child,...next];
   }
  }
