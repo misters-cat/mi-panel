@@ -106,3 +106,14 @@ test("Una visita borrada y su integrante no reaparecen al sincronizar",()=>{
  assert.equal(result.snapshot.deletedGroupPeople.length,1);
  assert.equal(result.snapshot.deletedGroupVisits.length,1);
 });
+
+test("Dos dispositivos con la misma próxima recurrencia no producen copia de conflicto",()=>{
+ const {merge}=engine();
+ const child={id:"recurring-t01-2026-02-28",originId:"t01",title:"Pago recurrente",
+  areaId:"personal",status:"Pendiente",due:"2026-02-28",repeat:"monthly",
+  repeatAnchorDay:31,createdAt:"2026-01-01T08:00:00Z",updatedAt:"2026-01-01T08:00:00Z"};
+ const out=merge([{tasks:[child]},{tasks:[{...child}]}],"2025-12-01T00:00:00Z");
+ assert.equal(out.conflicts,0);
+ assert.equal(out.snapshot.tasks.length,1);
+ assert.equal(out.snapshot.tasks[0].id,child.id);
+});
