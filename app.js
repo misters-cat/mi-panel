@@ -57,7 +57,7 @@ async function readState(){
    tx.onabort=()=>fail(tx.error||Error("Lectura local cancelada"));
   });
   // Una base vacía es válida en una instalación nueva. Un estado existente corrupto NO.
-  if(stored!=null&&(!Array.isArray(stored.tasks)||!stored.settings||typeof stored.settings!=="object"))throw Error("El estado local tiene un formato incompatible");
+  if(stored!=null&&!Array.isArray(stored.tasks))throw Error("El estado local tiene un formato incompatible");
   const normalized=migrateState(stored);
   state=normalized;
   storageReady=true;
