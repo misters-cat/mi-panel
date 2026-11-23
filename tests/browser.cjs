@@ -90,7 +90,7 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert.match(await page.locator("#app").innerText(),/Revisar el trabajo mañana/);
   console.log("OK: respetar elección de categoría manual");
 
-  assert.equal(await page.locator("#release-chip").innerText(),"v1.8.0");
+  assert.equal(await page.locator("#release-chip").innerText(),"v1.9.0");
   // La sincronización debe estar accesible desde la pantalla principal, incluso desconectada.
   await page.locator('button[data-view="semana"]').first().click();
   assert.equal(await page.locator(".quick-sync").count(),1);
@@ -118,7 +118,7 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert.match(await page.locator("#app").innerText(),/cifrado AES-GCM/);
   await page.locator("#release-history").waitFor({state:"attached"});
   assert.match(await page.locator("#app").innerText(),/Historial de versiones/);
-  assert.match(await page.locator(".release-latest").innerText(),/1\.8\.0/);
+  assert.match(await page.locator(".release-latest").innerText(),/1\.9\.0/);
   await page.locator("#release-history summary").click();
   assert.match(await page.locator("#release-history").innerText(),/1\.2\.2/);
   assert.match(await page.locator("#release-history").innerText(),/0\.1/);
@@ -387,6 +387,23 @@ function timeout(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Er
   assert(!focusList.includes("Compromiso posterior con hora"));
   console.log("OK: inicio ordena por fecha, aunque un compromiso posterior tenga hora");
   await orderContext.close();
+
+  // Validación de distribución adaptable en Chromium (simulación de iPad horizontal / móvil).
+  const tabletContext=await browser.newContext({viewport:{width:1024,height:768}});
+  const tabletPage=await tabletContext.newPage();
+  await tabletPage.goto("http://127.0.0.1:"+port+"/",{waitUntil:"domcontentloaded"});
+  await tabletPage.locator(".tablet-layout").waitFor();
+  const wideColumns=await tabletPage.locator(".tablet-layout").evaluate(el=>getComputedStyle(el).gridTemplateColumns.trim().split(/\\s+/).length);
+  assert.equal(wideColumns,2,"Mi día debe mostrar dos columnas en pantalla ancha");
+  await tabletPage.locator('button[data-view="agenda"]').first().click();
+  const agendaColumns=await tabletPage.locator(".agenda-week-grid").evaluate(el=>getComputedStyle(el).gridTemplateColumns.trim().split(/\\s+/).length);
+  assert.equal(agendaColumns,7,"La agenda debe mostrar siete días en pantalla ancha");
+  await tabletPage.setViewportSize({width:390,height:844});
+  await tabletPage.locator('button[data-view="semana"]').first().click();
+  const smallColumns=await tabletPage.locator(".tablet-layout").evaluate(el=>getComputedStyle(el).gridTemplateColumns.trim().split(/\\s+/).length);
+  assert.equal(smallColumns,1,"El inicio móvil debe conservar una columna");
+  await tabletContext.close();
+  console.log("OK: diseño iPad dos columnas, agenda siete columnas y móvil una columna");
 
   assert.equal(errors.length,0,"Excepciones JS: "+errors.join("; "));
   console.log("OK: sin errores JavaScript de ejecución");
