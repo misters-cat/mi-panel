@@ -172,3 +172,10 @@ Al crear un compromiso desde Agenda, se completa automáticamente el día selecc
 - Los registros personales continúan en **IndexedDB**, separados de la caché de archivos de la PWA. Las actualizaciones borran solamente cachés antiguas bajo el prefijo `mi-panel-`, **nunca IndexedDB ni los respaldos locales**.
 - Para instalar o recibir una versión nueva por primera vez es necesaria una visita con Internet. **No borres los datos de Safari ni desinstales la PWA** para solucionar problemas de carga: esas acciones podrían eliminar los registros locales. Conserva tus respaldos cifrados.
 - La suite incorpora pruebas de arranque sin red, consistencia de recursos y no dependencia de Google. La verificación de pull requests se ejecuta antes de publicar en `main`.
+
+
+## v1.7.0 · Captura rápida desde Mi día (23 de noviembre de 2026)
+- Nuevo campo de captura rápida en el inicio. El texto abre el formulario habitual para revisar categoría, fecha, hora y repetición; **nunca guarda ni envía a Google sin confirmación**.
+- La sugerencia local reconoce horarios 24 horas, como «miércoles 19:00», y deja la hora editable.
+- Los pendientes con fecha en Mi día muestran «+1 día». Pide confirmación, actualiza el mismo registro en IndexedDB y revierte la memoria si falla la escritura.
+- No cambia el esquema de IndexedDB ni el formato cifrado de Google Drive. Se mantienen todos los registros y respaldos existentes.
