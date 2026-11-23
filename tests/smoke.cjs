@@ -156,7 +156,7 @@ test("La captura rápida interpreta fecha y hora sin enviar nada a Google",()=>{
  const p=api.suggest("Reunión miércoles 19:00");
  assert.equal(p.area,"Congregación");
  assert.equal(p.time,"19:00");
- assert.match(p.due,/^\\d{4}-\\d{2}-\\d{2}$/);
+ assert.match(p.due,/^\d{4}-\d{2}-\d{2}$/);
 });
 test("Aplazar modifica solo la fecha del pendiente original y persiste local",async()=>{
  const {api,getSaved}=setup();
